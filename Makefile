@@ -1,8 +1,8 @@
 my_debugger: my_debugger.o pmparser.o
-	gcc my_debugger.o pmparser.o -o my_debugger -g
+	gcc mydbg.o pmparser.o -o mydbg -g
 
-my_debugger.o: my_debugger.c
-	gcc -c my_debugger.c -o my_debugger.o -g
+mydbg.o: mydbg.c
+	gcc -c mydbg.c -o mydbg.o -g
 
 pmparser.o: pmparser.c
 	gcc -c pmparser.c -o pmparser.o -g
