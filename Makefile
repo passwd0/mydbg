@@ -1,4 +1,4 @@
-my_debugger: my_debugger.o pmparser.o
+mydbg: mydbg.o pmparser.o
 	gcc mydbg.o pmparser.o -o mydbg -g
 
 mydbg.o: mydbg.c
