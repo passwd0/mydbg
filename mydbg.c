@@ -36,10 +36,6 @@ void write_memory(pid_t m_pid, uint64_t address, uint64_t value){
 }
 
 void dump_regs(pid_t m_pid, int print){
-	if (ptrace(PTRACE_GETREGS, m_pid, NULL, (void *)&regs) < 0){
-	    perror("regs");
-	    exit(1);
-	}
 	if (print){
 		printf("rip: 0x%08llx\n", regs.rip);
 		printf("rax: 0x%08llx\n", regs.rax);
@@ -102,7 +98,7 @@ void add_breakpoint(pid_t m_pid, uint64_t addr){
 	return;
 }
 
-void show_breakpoint(){
+void show_breakpoints(){
 	for (int i=0; i<20; i++){
 		if (!breakpoints[i].is_null){
 			printf("breakpoint %d: %llx\n", i, breakpoints[i].addr);
@@ -145,15 +141,11 @@ int virtual_memory(pid_t m_pid, int print){
 	return 1;
 }
 
-void print_disas(int len, uint64_t addr){
-	FILE *f;
-	f = fopen(filename, "rb");
-	uint64_t *data;
-	printf("entry: %lx\n",header.e_entry);
-	fseek(f, addr, SEEK_SET);
-	fread(&data, sizeof(uint64_t), 1, f);
-	for (int i=0; i<len; i++)
-		printf("%llx\n", data[i]);
+void print_disas(pid_t m_pid, uint64_t addr, int len){
+	for (int i=0; i < len; i++){
+		printf("0x%16llx\n", read_memory(m_pid, addr+sizeof(uint64_t)*i));
+	}
+	return;
 }
 
 void add_flag(char* flag, uint64_t addr){
@@ -170,18 +162,27 @@ void add_flag(char* flag, uint64_t addr){
 	return;
 }
 
-uint64_t flag_to_addr(char *flag){
+struct Flag find_flag(char *flag){
 	for (int i=0; i<20; i++){
 		if (!flags[i].is_null && strcmp(flag, flags[i].name) == 0)
-			return flags[i].addr;
+			return flags[i];
 	}
 	perror("unmapped memory");
-	return 0;
+	struct Flag f = {.is_null=1};
+	return f;
+}
+
+void show_flags(){
+	for (int i=0; i<20; i++){
+		if (!flags[i].is_null){
+			printf("flag%d: %s\t%llx\n", i, flags[i].name, flags[i].addr);
+		}
+	}
+	return;
 }
 
 int parent_main(pid_t pid) {
 	int wait_status;
-	char command[255];
 
 	waitpid(pid, &wait_status, 0);
 	ptrace(PTRACE_GETREGS, pid, NULL, &regs);
@@ -194,9 +195,33 @@ int parent_main(pid_t pid) {
 	flags[0].is_null = 0;
 	flags[0].addr = baseaddr + header.e_entry;
 
-	printf("\ndbg> ");
-	while(scanf("%s", command) > 0){
+	vector input;
 
+	printf("\ndbg> ");
+	while(1){
+		vector_init(&input);
+		char tmp[255];
+		int i = 0;
+		while((tmp[i++] = getchar()) != '\n');
+		char stmp[255];
+		i = 0;
+		int j = 0;
+		do{
+			if (tmp[j] != ' ' && tmp[j] != '\n'){
+				stmp[i++] = tmp[j];
+			}
+			else {
+				stmp[i]='\0';
+				if(strlen(stmp) > 0){
+					char *no_ref = (char*) malloc(strlen(stmp));
+					strcpy(no_ref, stmp);
+					vector_add(&input, no_ref);
+					i = 0;
+				}
+			}
+		}while(tmp[j++] != '\n');
+
+		char *command = (char*)vector_get(&input, 0);
 		if (strcmp(command, "ds") == 0){
 			single_step(pid);
 		}
@@ -207,56 +232,80 @@ int parent_main(pid_t pid) {
 			continue_execution(pid);
 		}
 		else if (strcmp(command, "db") == 0){
-			uint64_t addr;
-			char input[255];
-			int i = 0;
-			while((input[i++] = getchar())!='\n');
-			input[i]='\0';
-			char *trimmed_input = trim(input);
-			int l = strlen(trimmed_input);
-			if (l > 0){
-				int found = 0;
-				for (int i=0; i<l; i++){
-					if (!isdigit(trimmed_input[i])){
-						found = 1;
-					}
-				}
-				if (found){
-					addr = flag_to_addr(trimmed_input);
+			uint64_t addr = -1;
+			if (vector_total(&input) > 1){
+				char *tmp = (char *) vector_get(&input, 1);
+				if (!isxdigit(*tmp)){
+					struct Flag f = find_flag(tmp);
+					if (!f.is_null)
+						addr = f.addr;
 					if (addr != 0)
-						printf("%s -> 0x%8llx\n",trimmed_input, addr);
+						printf("%s -> 0x%8llx\n", tmp, addr);
 				}
-				else
-					addr = atol(trimmed_input);
-				add_breakpoint(pid, addr);
+				else{
+					addr = atol(tmp);
+				}
+				if (addr != (uint64_t)-1)
+					add_breakpoint(pid, addr);
 			}
 			else{
-				show_breakpoint();
+				show_breakpoints();
 			}
 		}
-		else if (strcmp(command, "pd") == 0){
-			int len;
-			uint64_t addr;
-			scanf("%d %llx", &len, &addr);
-			print_disas(len, addr);
+		else if (strcmp(command, "pxq") == 0){
+			int len = 0x20;
+			uint64_t addr = regs.rip;
+			if (vector_total(&input) > 1){
+				char *tmp = (char *) vector_get(&input, 1);
+				if (is_dec(tmp)){
+					len = atoi(tmp);
+				}else if(isxdigit(*tmp)){
+					sscanf(tmp, "%x", &len);
+				}
+			}
+			if (vector_total(&input) > 2){
+				char *tmp = (char *) vector_get(&input, 2);
+				if (is_dec(tmp)){
+					addr = atoi(tmp);
+				}else if(is_hex(tmp)){
+					sscanf(tmp, "%llx", &addr);
+				}else{
+					struct Flag tmp_flag = find_flag(tmp);
+					if (!tmp_flag.is_null)
+						addr = tmp_flag.addr;
+				}
+			}
+			print_disas(pid, addr, len);
 		}
 		else if (strcmp(command, "f") == 0){
-			char name[255];
-			uint64_t addr;
-
-			scanf("%s %llx", name, &addr);
-			add_flag(name, addr);
+			uint64_t addr = regs.rip;
+			char *name;
+			if (vector_total(&input) > 2){
+				char *tmp = (char *) vector_get(&input, 2);
+				if (is_dec(tmp)){
+					addr = atoi(tmp);
+				}else if(isxdigit(*tmp)){
+					sscanf(tmp, "%llx", &addr);
+				}
+			}
+			if (vector_total(&input) > 1){
+				name = (char *) vector_get(&input, 1);
+				add_flag(name, addr);
+			}
+			if (vector_total(&input) == 1){
+				show_flags();
+			}
 		}
 		else if (strcmp(command, "q") == 0){
 			kill(pid, SIGKILL);
-			wait(&wait_status);
+			wait_for_signal(pid);
+			vector_free(&input);
 			exit(0);
 		}
 		else {
 			printf("command not found\n");
 		}
-		//char a;
-		//while ((a = getchar()) != 0xa);
+		vector_free(&input);
 		printf("\ndbg> ");
 	}
 	return 0;
@@ -304,40 +353,24 @@ int main(int argc, char *argv[]) {
 	return result;
 }
 
-char *trim(char *str){
-	size_t len = 0;
-	char *frontp = str;
-	char *endp = NULL;
-
-	if( str == NULL ) { return NULL; }
-	if( str[0] == '\0' ) { return str; }
-
-	len = strlen(str);
-	endp = str + len;
-
-	/* Move the front and back pointers to address the first non-whitespace
-	* characters from each end.
-	*/
-	while( isspace((unsigned char) *frontp) ) { ++frontp; }
-	if( endp != frontp )
-	{
-	while( isspace((unsigned char) *(--endp)) && endp != frontp ) {}
+int is_dec(char *src){
+	int found = 0;
+	int l = strlen(src);
+	for (int i=0; i<l; i++){
+		if (!isdigit(src[i])){
+			found = 1;
+		}
 	}
+	return !found;
+}
 
-	if( str + len - 1 != endp )
-		*(endp + 1) = '\0';
-	else if( frontp != str &&  endp == frontp )
-		*str = '\0';
-
-	/* Shift the string so that it starts at str so that if it's dynamically
-	* allocated, we can still free it on the returned pointer.  Note the reuse
-	* of endp to mean the front of the string buffer now.
-	*/
-	endp = str;
-	if( frontp != str )
-	{
-		while( *frontp ) { *endp++ = *frontp++; }
-		*endp = '\0';
+int is_hex(char *src){
+	int found = 0;
+	int l = strlen(src);
+	for (int i=0; i<l; i++){
+		if (!isxdigit(src[i])){
+			found = 1;
+		}
 	}
-	return str;
+	return !found;
 }

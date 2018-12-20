@@ -374,14 +374,16 @@ void single_step(pid_t);
 void continue_execution(pid_t);
 int read_elf_header();
 int virtual_memory(pid_t, int print);
-void print_disas(int len, uint64_t addr);
-void add_breakpoint(pid_t, uint64_t addr);
-void show_breakpoint();
 struct Breakpoint breakpoint_addr_to_data(uint64_t addr);
+void add_breakpoint(pid_t, uint64_t addr);
+void show_breakpoints();
+void print_disas(pid_t m_pid, uint64_t addr, int len);
 void add_flag(char* flag, uint64_t addr);
-uint64_t flag_to_addr(char *flag);
+struct Flag find_flag(char *flag);
+void show_flags();
 int parent_main(pid_t);
 int child_main(const char *filename, char *argv[]);
-char *trim(char *str);
+int is_dec(char *src);
+int is_hex(char *src);
 
 #endif
