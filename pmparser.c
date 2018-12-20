@@ -130,7 +130,7 @@ void _pmparser_split_line(
 	i++;
 	//addr2
 	orig=i;
-	)while(buf[i]!='\t' && buf[i]!=' '){
+	while(buf[i]!='\t' && buf[i]!=' '){
 		addr2[i-orig]=buf[i];
 		i++;
 	}

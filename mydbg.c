@@ -1,363 +1,30 @@
-#include <sys/ptrace.h>
-#include <sys/types.h>
-#include <fcntl.h>
-#include <sys/user.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <elf.h>
-#include <ctype.h>
-#include "pmparser.h"
+#include "mydbg.h"
 
-#define uint64_t unsigned long long
-
-struct Breakpoints{
-	uint64_t addr;
-	uint64_t data;
-} breakpoints[20];
-struct Flags {
-	uint64_t addr;
-	char *name;
-	int isnull;
-} flags[20];
-uint64_t prev_rip = 0;
-const char *filename;
-Elf64_Ehdr header;
-struct user_regs_struct regs;
-uint64_t baseaddr;
-
-const char *name[] = {
-    "read",
-    "write",
-    "open",
-    "close",
-    "stat",
-    "fstat",
-    "lstat",
-    "poll",
-    "lseek",
-    "mmap",
-    "mprotect",
-    "munmap",
-    "brk",
-    "rt_sigaction",
-    "rt_sigprocmask",
-    "rt_sigreturn",
-    "ioctl",
-    "pread",
-    "pwrite",
-    "readv",
-    "writev",
-    "access",
-    "pipe",
-    "select",
-    "sched_yield",
-    "mremap",
-    "msync",
-    "mincore",
-    "madvise",
-    "shmget",
-    "shmat",
-    "shmctl",
-    "dup",
-    "dup2",
-    "pause",
-    "nanosleep",
-    "getitimer",
-    "alarm",
-    "setitimer",
-    "getpid",
-    "sendfile",
-    "socket",
-    "connect",
-    "accept",
-    "sendto",
-    "recvfrom",
-    "sendmsg",
-    "recvmsg",
-    "shutdown",
-    "bind",
-    "listen",
-    "getsockname",
-    "getpeername",
-    "socketpair",
-    "setsockopt",
-    "getsockopt",
-    "clone",
-    "fork",
-    "vfork",
-    "execve",
-    "exit",
-    "wait4",
-    "kill",
-    "uname",
-    "semget",
-    "semop",
-    "semctl",
-    "shmdt",
-    "msgget",
-    "msgsnd",
-    "msgrcv",
-    "msgctl",
-    "fcntl",
-    "flock",
-    "fsync",
-    "fdatasync",
-    "truncate",
-    "ftruncate",
-    "getdents",
-    "getcwd",
-    "chdir",
-    "fchdir",
-    "rename",
-    "mkdir",
-    "rmdir",
-    "creat",
-    "link",
-    "unlink",
-    "symlink",
-    "readlink",
-    "chmod",
-    "fchmod",
-    "chown",
-    "fchown",
-    "lchown",
-    "umask",
-    "gettimeofday",
-    "getrlimit",
-    "getrusage",
-    "sysinfo",
-    "times",
-    "ptrace",
-    "getuid",
-    "syslog",
-    "getgid",
-    "setuid",
-    "setgid",
-    "geteuid",
-    "getegid",
-    "setpgid",
-    "getppid",
-    "getpgrp",
-    "setsid",
-    "setreuid",
-    "setregid",
-    "getgroups",
-    "setgroups",
-    "setresuid",
-    "getresuid",
-    "setresgid",
-    "getresgid",
-    "getpgid",
-    "setfsuid",
-    "setfsgid",
-    "getsid",
-    "capget",
-    "capset",
-    "rt_sigpending",
-    "rt_sigtimedwait",
-    "rt_sigqueueinfo",
-    "rt_sigsuspend",
-    "sigaltstack",
-    "utime",
-    "mknod",
-    "uselib",
-    "personality",
-    "ustat",
-    "statfs",
-    "fstatfs",
-    "sysfs",
-    "getpriority",
-    "setpriority",
-    "sched_setparam",
-    "sched_getparam",
-    "sched_setscheduler",
-    "sched_getscheduler",
-    "sched_get_priority_max",
-    "sched_get_priority_min",
-    "sched_rr_get_interval",
-    "mlock",
-    "munlock",
-    "mlockall",
-    "munlockall",
-    "vhangup",
-    "modify_ldt",
-    "pivot_root",
-    "_sysctl",
-    "prctl",
-    "arch_prctl",
-    "adjtimex",
-    "setrlimit",
-    "chroot",
-    "sync",
-    "acct",
-    "settimeofday",
-    "mount",
-    "umount2",
-    "swapon",
-    "swapoff",
-    "reboot",
-    "sethostname",
-    "setdomainname",
-    "iopl",
-    "ioperm",
-    "create_module",
-    "init_module",
-    "delete_module",
-    "get_kernel_syms",
-    "query_module",
-    "quotactl",
-    "nfsservctl",
-    "getpmsg",
-    "putpmsg",
-    "afs_syscall",
-    "tuxcall",
-    "security",
-    "gettid",
-    "readahead",
-    "setxattr",
-    "lsetxattr",
-    "fsetxattr",
-    "getxattr",
-    "lgetxattr",
-    "fgetxattr",
-    "listxattr",
-    "llistxattr",
-    "flistxattr",
-    "removexattr",
-    "lremovexattr",
-    "fremovexattr",
-    "tkill",
-    "time",
-    "futex",
-    "sched_setaffinity",
-    "sched_getaffinity",
-    "set_thread_area",
-    "io_setup",
-    "io_destroy",
-    "io_getevents",
-    "io_submit",
-    "io_cancel",
-    "get_thread_area",
-    "lookup_dcookie",
-    "epoll_create",
-    "epoll_ctl_old",
-    "epoll_wait_old",
-    "remap_file_pages",
-    "getdents64",
-    "set_tid_address",
-    "restart_syscall",
-    "semtimedop",
-    "fadvise64",
-    "timer_create",
-    "timer_settime",
-    "timer_gettime",
-    "timer_getoverrun",
-    "timer_delete",
-    "clock_settime",
-    "clock_gettime",
-    "clock_getres",
-    "clock_nanosleep",
-    "exit_group",
-    "epoll_wait",
-    "epoll_ctl",
-    "tgkill",
-    "utimes",
-    "vserver",
-    "mbind",
-    "set_mempolicy",
-    "get_mempolicy",
-    "mq_open",
-    "mq_unlink",
-    "mq_timedsend",
-    "mq_timedreceive",
-    "mq_notify",
-    "mq_getsetattr",
-    "kexec_load",
-    "waitid",
-    "add_key",
-    "request_key",
-    "keyctl",
-    "ioprio_set",
-    "ioprio_get",
-    "inotify_init",
-    "inotify_add_watch",
-    "inotify_rm_watch",
-    "migrate_pages",
-    "openat",
-    "mkdirat",
-    "mknodat",
-    "fchownat",
-    "futimesat",
-    "newfstatat",
-    "unlinkat",
-    "renameat",
-    "linkat",
-    "symlinkat",
-    "readlinkat",
-    "fchmodat",
-    "faccessat",
-    "pselect6",
-    "ppoll",
-    "unshare",
-    "set_robust_list",
-    "get_robust_list",
-    "splice",
-    "tee",
-    "sync_file_range",
-    "vmsplice",
-    "move_pages",
-    "utimensat",
-    "epoll_pwait",
-    "signalfd",
-    "timerfd",
-    "eventfd",
-    "fallocate",
-    "timerfd_settime",
-    "timerfd_gettime",
-    "accept4",
-    "signalfd4",
-    "eventfd2",
-    "epoll_create1",
-    "dup3",
-    "pipe2",
-    "inotify_init1",
-    "preadv",
-    "pwritev",
-    "rt_tgsigqueueinfo",
-    "perf_event_open",
-    "recvmmsg",
-    "fanotify_init",
-    "fanotify_mark",
-    "prlimit64",
-    "name_to_handle_at",
-    "open_by_handle_at",
-    "clock_adjtime",
-    "syncfs",
-    "sendmmsg",
-    "setns",
-    "getcpu",
-    "process_vm_readv",
-    "process_vm_writev",
-    "kcmp",
-    "finit_module",
-    "sched_setattr",
-    "sched_getattr",
-    "renameat2",
-    "seccomp",
-    "getrandom",
-    "memfd_create",
-    "kexec_file_load",
-    "bpf",
-    "execveat",
-};
+siginfo_t get_signal_info(pid_t m_pid){
+	siginfo_t info;
+	ptrace(PTRACE_GETSIGINFO, m_pid, NULL, &info);
+	return info;
+}
 
 void wait_for_signal(pid_t m_pid){
 	int wait_status, options = 0;
+
 	waitpid(m_pid, &wait_status, options);
+	ptrace(PTRACE_GETREGS, m_pid, NULL, &regs);
+	switch (get_signal_info(m_pid).si_code){
+	case SI_KERNEL:
+	{
+		struct Breakpoint breakpoint = breakpoint_addr_to_data(regs.rip-1);
+		if (!breakpoint.is_null && breakpoint.is_enabled){
+			write_memory(m_pid, breakpoint.addr, breakpoint.data);
+			breakpoint.is_enabled=0;
+			regs.rip = regs.rip-1;
+			set_regs(m_pid, regs);
+		}
+		break;
+	}
+	}
+	return;
 }
 
 uint64_t read_memory(pid_t m_pid, uint64_t address){
@@ -386,7 +53,11 @@ void dump_regs(pid_t m_pid, int print){
 	}
 
 	printf("rip: 0x%08llx\t\top : 0x%016llx\n", regs.rip, read_memory(m_pid, regs.rip));
-	prev_rip = regs.rip;
+	return;
+}
+
+void set_regs(pid_t m_pid, struct user_regs_struct new_regs){
+	ptrace(PTRACE_SETREGS, m_pid, NULL, &new_regs);
 }
 
 void single_step(pid_t m_pid){
@@ -402,14 +73,42 @@ void single_step(pid_t m_pid){
 void continue_execution(pid_t m_pid){
 	ptrace(PTRACE_CONT, m_pid, NULL, NULL);
 	wait_for_signal(m_pid);
-	write_memory(m_pid, breakpoints[0].addr, breakpoints[0].data);
+	dump_regs(m_pid, 0);
 }
 
-void set_breakpoint(pid_t m_pid, uint64_t addr){
-	breakpoints[0].addr = addr;
-	breakpoints[0].data = read_memory(m_pid, addr);
-	uint64_t data_with_trap = (breakpoints[0].data & 0xFFFFFF00) | 0xCC;
-	write_memory(m_pid, addr, data_with_trap);
+struct Breakpoint breakpoint_addr_to_data(uint64_t addr){
+	for (int i=0; i<20; i++){
+		if (!breakpoints[i].is_null && breakpoints[i].addr == addr){
+			return breakpoints[i];
+		}
+	}
+	struct Breakpoint breakpoint = {.addr=0, .data=0, .is_null=1};
+	return breakpoint;
+}
+
+void add_breakpoint(pid_t m_pid, uint64_t addr){
+	for (int i=0; i<20; i++){
+		if (breakpoints[i].is_null){
+			breakpoints[i].is_enabled = 1;
+			breakpoints[i].is_null = 0;
+			breakpoints[i].addr = addr;
+			breakpoints[i].data = read_memory(m_pid, addr);
+			uint64_t data_with_trap = (breakpoints[i].data & 0xFFFFFF00) | 0xCC;
+			write_memory(m_pid, addr, data_with_trap);
+			return;
+		}
+	}
+	perror("no breakpoints free left");
+	return;
+}
+
+void show_breakpoint(){
+	for (int i=0; i<20; i++){
+		if (!breakpoints[i].is_null){
+			printf("breakpoint %d: %llx\n", i, breakpoints[i].addr);
+		}
+	}
+	return;
 }
 
 int read_elf_header() {
@@ -459,21 +158,21 @@ void print_disas(int len, uint64_t addr){
 
 void add_flag(char* flag, uint64_t addr){
 	for (int i=0; i<20; i++){
-		if (flags[i].isnull){
-
+		if (flags[i].is_null){
 			flags[i].name = (char *) malloc(strlen(flag));
 			strcpy(flags[i].name, flag);
 			flags[i].addr = addr;
-			flags[i].isnull = 0;
+			flags[i].is_null = 0;
 			return;
 		}
 	}
-	perror("no breakpoints free left");
+	perror("no flags free left");
+	return;
 }
 
 uint64_t flag_to_addr(char *flag){
 	for (int i=0; i<20; i++){
-		if (!flags[i].isnull && strcmp(flag, flags[i].name) == 0)
+		if (!flags[i].is_null && strcmp(flag, flags[i].name) == 0)
 			return flags[i].addr;
 	}
 	perror("unmapped memory");
@@ -485,14 +184,14 @@ int parent_main(pid_t pid) {
 	char command[255];
 
 	waitpid(pid, &wait_status, 0);
-	ptrace(PTRACE_GETREGS, pid, NULL, (void *)&regs);
+	ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 	read_elf_header();
 	printf("entrypoint is at 0x%lx\n", header.e_entry);
 	virtual_memory(pid, 0);
 	printf("base address is at 0x%08llx\n", baseaddr);
 	flags[0].name = (char *) malloc(strlen("entry0"));
 	strcpy(flags[0].name, "entry0");
-	flags[0].isnull = 0;
+	flags[0].is_null = 0;
 	flags[0].addr = baseaddr + header.e_entry;
 
 	printf("\ndbg> ");
@@ -510,22 +209,30 @@ int parent_main(pid_t pid) {
 		else if (strcmp(command, "db") == 0){
 			uint64_t addr;
 			char input[255];
-			scanf("%s", input);
-			int l = strlen(input);
-			int found = 0;
-			for (int i=0; i<l; i++){
-				if (!isdigit(input[i])){
-					found = 1;
+			int i = 0;
+			while((input[i++] = getchar())!='\n');
+			input[i]='\0';
+			char *trimmed_input = trim(input);
+			int l = strlen(trimmed_input);
+			if (l > 0){
+				int found = 0;
+				for (int i=0; i<l; i++){
+					if (!isdigit(trimmed_input[i])){
+						found = 1;
+					}
 				}
+				if (found){
+					addr = flag_to_addr(trimmed_input);
+					if (addr != 0)
+						printf("%s -> 0x%8llx\n",trimmed_input, addr);
+				}
+				else
+					addr = atol(trimmed_input);
+				add_breakpoint(pid, addr);
 			}
-			if (found){
-				addr = flag_to_addr(input);
-				if (addr != 0)
-					printf("%s -> 0x%8llx\n",input, addr);
+			else{
+				show_breakpoint();
 			}
-			else
-				addr = atol(input);
-			set_breakpoint(pid, addr);
 		}
 		else if (strcmp(command, "pd") == 0){
 			int len;
@@ -533,10 +240,10 @@ int parent_main(pid_t pid) {
 			scanf("%d %llx", &len, &addr);
 			print_disas(len, addr);
 		}
-
 		else if (strcmp(command, "f") == 0){
 			char name[255];
 			uint64_t addr;
+
 			scanf("%s %llx", name, &addr);
 			add_flag(name, addr);
 		}
@@ -548,8 +255,8 @@ int parent_main(pid_t pid) {
 		else {
 			printf("command not found\n");
 		}
-		char a;
-		while ((a = getchar()) != 0xa);
+		//char a;
+		//while ((a = getchar()) != 0xa);
 		printf("\ndbg> ");
 	}
 	return 0;
@@ -570,30 +277,67 @@ int child_main(const char *filename, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-  pid_t pid;
-  int result;
+	pid_t pid;
+	int result;
 
-  for (int i=0; i<20; i++){
-	  flags[i].isnull = 1;
-  }
+	for (int i=0; i<20; i++){
+		flags[i].is_null = 1;
+		breakpoints[i].is_null = 1;
+		breakpoints[i].is_enabled = 0;
+	}
 
-  if (argc < 2) {
-    printf("usage: \n%s execfile [options]\n", argv[0]);
-    return 0;
-  }
+	if (argc < 2) {
+		printf("usage: \n%s execfile [options]\n", argv[0]);
+		return 0;
+	}
 
-  filename = argv[1];
+	filename = argv[1];
 
-  pid = fork();
-  if (pid) {
-    // parent
-    fprintf(stderr, "%5d: child started\n", pid);
+	pid = fork();
+	if (pid) {
+		fprintf(stderr, "%5d: child started\n", pid);
+		result = parent_main(pid);
+	} else {
+		result = child_main(filename, &argv[1]);
+	}
 
-    result = parent_main(pid);
-  } else {
-    // child
-    result = child_main(filename, &argv[1]);
-  }
+	return result;
+}
 
-  return result;
+char *trim(char *str){
+	size_t len = 0;
+	char *frontp = str;
+	char *endp = NULL;
+
+	if( str == NULL ) { return NULL; }
+	if( str[0] == '\0' ) { return str; }
+
+	len = strlen(str);
+	endp = str + len;
+
+	/* Move the front and back pointers to address the first non-whitespace
+	* characters from each end.
+	*/
+	while( isspace((unsigned char) *frontp) ) { ++frontp; }
+	if( endp != frontp )
+	{
+	while( isspace((unsigned char) *(--endp)) && endp != frontp ) {}
+	}
+
+	if( str + len - 1 != endp )
+		*(endp + 1) = '\0';
+	else if( frontp != str &&  endp == frontp )
+		*str = '\0';
+
+	/* Shift the string so that it starts at str so that if it's dynamically
+	* allocated, we can still free it on the returned pointer.  Note the reuse
+	* of endp to mean the front of the string buffer now.
+	*/
+	endp = str;
+	if( frontp != str )
+	{
+		while( *frontp ) { *endp++ = *frontp++; }
+		*endp = '\0';
+	}
+	return str;
 }
