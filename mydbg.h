@@ -15,11 +15,11 @@
 #include <ctype.h>
 #include <signal.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "pmparser.h"
 #include "vector.h"
 
-#define uint64_t unsigned long long
 
 struct Breakpoint {
 	uint64_t addr;

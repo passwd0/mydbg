@@ -175,7 +175,7 @@ struct Flag find_flag(char *flag){
 void show_flags(){
 	for (int i=0; i<20; i++){
 		if (!flags[i].is_null){
-			printf("flag%d: %s\t%llx\n", i, flags[i].name, flags[i].addr);
+			printf("flag%d: %s\t0x%llx\n", i, flags[i].name, flags[i].addr);
 		}
 	}
 	return;
@@ -235,7 +235,7 @@ int parent_main(pid_t pid) {
 			uint64_t addr = -1;
 			if (vector_total(&input) > 1){
 				char *tmp = (char *) vector_get(&input, 1);
-				if (!isxdigit(*tmp)){
+				if (!is_hex(tmp)){
 					struct Flag f = find_flag(tmp);
 					if (!f.is_null)
 						addr = f.addr;
@@ -295,6 +295,9 @@ int parent_main(pid_t pid) {
 			if (vector_total(&input) == 1){
 				show_flags();
 			}
+		}
+		else if (strcmp(command, "dm") == 0){
+			virtual_memory(pid, 1);
 		}
 		else if (strcmp(command, "q") == 0){
 			kill(pid, SIGKILL);
@@ -374,3 +377,4 @@ int is_hex(char *src){
 	}
 	return !found;
 }
+
