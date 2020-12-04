@@ -63,7 +63,7 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 			size_t curr_byte = 0;
 			for (size_t j = 0; j < count && j < ninstr; j++) {
 				offset += insn[j].size;
-				printf("0x%"PRIx64":\t\t", insn[j].address);
+				printf("0x%"PRIx64":\t\t", insn[j].address+offset);
 				size_t sum_byte = curr_byte + insn[j].size;
 				for (; curr_byte < sum_byte; curr_byte++)
 					printf("%02x ", code[curr_byte]);
@@ -77,7 +77,7 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 			}
 			
 			ninstr -= count;
-
+			
 			cs_free(insn, count);
 		} else {
 			printf("ERROR: Failed to disassemble given code!\n");
