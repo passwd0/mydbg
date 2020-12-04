@@ -253,7 +253,7 @@ uint64_t get_addr_or_flag(char *str){
 			addr = f.addr;
 	}
 	else{
-		addr = atol(str);
+		addr = (uint64_t)strtol(str, NULL, 0);
 	}
 	return addr;
 }
