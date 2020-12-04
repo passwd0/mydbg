@@ -1,11 +1,20 @@
-mydbg: mydbg.o pmparser.o vector.o
-	gcc mydbg.o pmparser.o vector.o -o mydbg -g
+CC=gcc
+LIBNAME = capstone
+
+mydbg: mydbg.o pmparser.o vector.o utils.o
+	$(CC) $^ -o $@ -g -l $(LIBNAME) -fPIE
 
 mydbg.o: mydbg.c
-	gcc -c mydbg.c -o mydbg.o -g
+	$(CC) -c $< -o $@ -l $(LIBNAME) -g
 
 pmparser.o: pmparser.c
-	gcc -c pmparser.c -o pmparser.o -g
+	$(CC) -c $< -o $@ -g
 
 vector.o: vector.c
-	gcc -c vector.c -o vector.o -g
+	$(CC) -c $< -o $@ -g
+
+utils.o: utils.c
+	$(CC) -c $< -o $@ -g
+
+clean:
+	rm *.o

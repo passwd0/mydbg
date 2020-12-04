@@ -17,6 +17,10 @@
 #include <string.h>
 #include <stdint.h>
 
+#include <inttypes.h>
+
+#include <capstone/capstone.h>
+#include "utils.h"
 #include "pmparser.h"
 #include "vector.h"
 
@@ -32,6 +36,10 @@ struct Flag {
 	char *name;
 	int is_null;
 } flags[20];
+typedef struct Instruction {
+    uint64_t addr;
+    char *type; 
+} Instruction;
 struct user_regs_struct regs;
 Elf64_Ehdr header;
 
@@ -368,7 +376,7 @@ siginfo_t get_signal_info(pid_t);
 void wait_for_signal(pid_t);
 uint64_t read_memory(pid_t, uint64_t address);
 void write_memory(pid_t, uint64_t address, uint64_t value);
-void dump_regs(pid_t, int print);
+void dump_regs(pid_t, char *reg);
 void set_regs(pid_t, struct user_regs_struct regs);
 void single_step(pid_t);
 void continue_execution(pid_t);
