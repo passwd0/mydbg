@@ -42,7 +42,7 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 	size_t count;
 
 	if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
-		return -1;
+		return instructions;
 
 	uint8_t *code = (uint8_t *) malloc(sizeof(uint8_t) * 8);
 	
@@ -186,22 +186,22 @@ int read_elf_header() {
 }
 
 int virtual_memory(pid_t m_pid, int print){
-	procmaps_struct* maps = pmparser_parse(m_pid);
-	if (maps == NULL){
-		printf("maps: cannot parse\n");
-		return 0;
-	}
-	if (print){
-		procmaps_struct* maps_tmp = NULL;
+	// procmaps_struct* maps = pmparser_parse(m_pid);
+	// if (maps == NULL){
+	// 	printf("maps: cannot parse\n");
+	// 	return 0;
+	// }
+	// if (print){
+	// 	procmaps_struct* maps_tmp = NULL;
 
-		while ((maps_tmp = pmparser_next()) != NULL){
-			pmparser_print(maps_tmp,0);
-			printf("------\n");
-		}
-	}
+	// 	while ((maps_tmp = pmparser_next()) != NULL){
+	// 		pmparser_print(maps_tmp,0);
+	// 		printf("------\n");
+	// 	}
+	// }
 
-	baseaddr = (uint64_t) maps[0].addr_start;
-	pmparser_free(maps);
+	// baseaddr = (uint64_t) maps[0].addr_start;
+	// pmparser_free(maps);
 	return 1;
 }
 
@@ -269,6 +269,22 @@ uint64_t get_temporary_seek(char *tmp_seek) {
 	return addr;
 }
 
+void print_symbols(std::vector<elf_parser::symbol_t> &symbols) {
+    printf("Num:    Value  Size Type    Bind   Vis      Ndx Name\n");
+    for (auto &symbol : symbols) {
+        printf("%-3d: %08" PRIx64 "  %-4d %-8s %-7s %-9s %-3s %s(%s)\n",
+                symbol.symbol_num, 
+                symbol.symbol_value,
+                symbol.symbol_size, 
+                symbol.symbol_type.c_str(),
+                symbol.symbol_bind.c_str(),
+                symbol.symbol_visibility.c_str(),
+                symbol.symbol_index.c_str(),
+                symbol.symbol_name.c_str(),
+                symbol.symbol_section.c_str());     
+    }
+}
+
 int parent_main(pid_t pid) {
 	int wait_status;
 
@@ -322,6 +338,7 @@ int parent_main(pid_t pid) {
 				command++;
 			} else {
 				printf("?<cmd>\n");
+				printf("is\n");
 				printf("pd <len>\n");
 				printf("ds\n");
 				printf("dr [reg]\n");
@@ -448,6 +465,16 @@ int parent_main(pid_t pid) {
 				else{
 					show_breakpoints();
 				}
+			}
+		}
+		else if (!strcmp(command, "is")){
+			if (is_helper)
+				printf("is: info symbols");
+			else {
+				std::string program((std::string)filename);
+				elf_parser::Elf_parser elf_parser(program);
+				std::vector<elf_parser::symbol_t> syms = elf_parser.get_symbols();
+    			print_symbols(syms);
 			}
 		}
 		else if (strcmp(command, "pxq") == 0){

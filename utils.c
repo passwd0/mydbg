@@ -1,3 +1,5 @@
+#include "utils.h"
+
 int is_dec(char *src){
 	int found = 0;
 	int l = strlen(src);
