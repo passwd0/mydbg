@@ -61,9 +61,9 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 		count = cs_disasm(handle, code, 8, addr, 0, &insn);
 		if (count > 0) { // assert
 			size_t curr_byte = 0;
+			uint64_t offset_tmp = 0;
 			for (size_t j = 0; j < count && j < ninstr; j++) {
-				offset += insn[j].size;
-				printf("0x%"PRIx64":\t\t", insn[j].address+offset);
+				printf("0x%"PRIx64":\t\t", insn[j].address + offset);
 				size_t sum_byte = curr_byte + insn[j].size;
 				for (; curr_byte < sum_byte; curr_byte++)
 					printf("%02x ", code[curr_byte]);
@@ -74,8 +74,11 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 
 				instructions[j].addr = insn[j].address;
 				instructions[j].type = insn[j].mnemonic;
+				
+				offset_tmp += insn[j].size;
 			}
-			
+
+			offset += offset_tmp;
 			ninstr -= count;
 			
 			cs_free(insn, count);
