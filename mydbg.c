@@ -171,19 +171,20 @@ void show_breakpoints(){
 	return;
 }
 
-int read_elf_header() {
-	FILE* file = fopen(filename, "rb");
-	if(file) {
-		fread(&header, 1, sizeof(header), file);
+// int read_elf_header() {
+// 	FILE* file = fopen(filename, "rb");
+// 	if(file) {
+// 		fread(&header, 1, sizeof(header), file);
 
-		// check so its really an elf file
-		if (memcmp(header.e_ident, ELFMAG, SELFMAG) == 0) {
-			fclose(file);
-			return 1;
-		}
-	}
-	return 0;
-}
+// 		// check so its really an elf file
+// 		if (memcmp(header.e_ident, ELFMAG, SELFMAG) == 0) {
+// 			fclose(file);
+// 			return 1;
+// 		}
+// 	}
+// 	return 0;
+// }
+
 
 int virtual_memory(pid_t m_pid, int print){
 	// procmaps_struct* maps = pmparser_parse(m_pid);
@@ -269,28 +270,12 @@ uint64_t get_temporary_seek(char *tmp_seek) {
 	return addr;
 }
 
-void print_symbols(std::vector<elf_parser::symbol_t> &symbols) {
-    printf("Num:    Value  Size Type    Bind   Vis      Ndx Name\n");
-    for (auto &symbol : symbols) {
-        printf("%-3d: %08" PRIx64 "  %-4d %-8s %-7s %-9s %-3s %s(%s)\n",
-                symbol.symbol_num, 
-                symbol.symbol_value,
-                symbol.symbol_size, 
-                symbol.symbol_type.c_str(),
-                symbol.symbol_bind.c_str(),
-                symbol.symbol_visibility.c_str(),
-                symbol.symbol_index.c_str(),
-                symbol.symbol_name.c_str(),
-                symbol.symbol_section.c_str());     
-    }
-}
-
 int parent_main(pid_t pid) {
 	int wait_status;
 
 	waitpid(pid, &wait_status, 0);
 	ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-	read_elf_header();
+
 	printf("entrypoint is at 0x%lx\n", header.e_entry);
 	virtual_memory(pid, 0);
 	printf("base address is at 0x%08llx\n", baseaddr);
@@ -471,10 +456,10 @@ int parent_main(pid_t pid) {
 			if (is_helper)
 				printf("is: info symbols");
 			else {
-				std::string program((std::string)filename);
-				elf_parser::Elf_parser elf_parser(program);
-				std::vector<elf_parser::symbol_t> syms = elf_parser.get_symbols();
-    			print_symbols(syms);
+				// std::string program((std::string)filename);
+				// elf_parser::Elf_parser elf_parser(program);
+				// std::vector<elf_parser::symbol_t> syms = elf_parser.get_symbols();
+    			// print_symbols(syms);
 			}
 		}
 		else if (strcmp(command, "pxq") == 0){
@@ -570,6 +555,27 @@ int child_main(const char *filename, char *argv[]) {
 	return 0;
 }
 
+// void print_sections(std::vector<elf_parser::section_t> &sections) {
+//     printf("  [Nr] %-16s %-16s %-16s %s\n", "Name", "Type", "Address", "Offset");
+//     printf("       %-16s %-16s %5s\n",
+//                     "Size", "EntSize", "Align");
+    
+//     for (auto &section : sections) {
+//         printf("  [%2d] %-16s %-16s %016llx %08llx\n", 
+//             section.section_index,
+//             section.section_name.c_str(),
+//             section.section_type.c_str(),
+//             section.section_addr, 
+//             section.section_offset);
+
+//         printf("       %016zx %016llx %5d\n",
+//             section.section_size, 
+//             section.section_ent_size,
+//             section.section_addr_align);
+//     }
+// }
+
+
 int main(int argc, char *argv[]) {
 	pid_t pid;
 	int result;
@@ -586,6 +592,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	filename = argv[1];
+
+	get_sections(filename);
+	exit(0);
 
 	pid = fork();
 	if (pid) {

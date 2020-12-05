@@ -1,7 +1,7 @@
-CC=g++
+CC=gcc
 LIBNAME = capstone
 
-mydbg: mydbg.o vector.o utils.o elf_parser.o
+mydbg: mydbg.o vector.o utils.o elfparser.o
 	$(CC) $^ -o $@ -g -l $(LIBNAME) -fPIE
 
 mydbg.o: mydbg.c
@@ -16,7 +16,7 @@ vector.o: vector.c
 utils.o: utils.c
 	$(CC) -c $< -o $@ -g
 
-elf_parser.o: elf_parser.cpp
+elfparser.o: elfparser.c
 	$(CC) -c $< -o $@ -g
 
 clean:

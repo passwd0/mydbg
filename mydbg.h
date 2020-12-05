@@ -4,6 +4,7 @@
 #include <sys/ptrace.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -23,7 +24,7 @@
 #include "utils.h"
 // #include "pmparser.h"
 #include "vector.h"
-#include "elf_parser.hpp"
+#include "elfparser.h"
 
 struct Breakpoint {
 	uint64_t addr;
@@ -380,7 +381,6 @@ void dump_regs(pid_t, char *reg);
 void set_regs(pid_t, struct user_regs_struct regs);
 void single_step(pid_t);
 void continue_execution(pid_t);
-int read_elf_header();
 int virtual_memory(pid_t, int print);
 struct Breakpoint breakpoint_addr_to_data(uint64_t addr);
 void add_breakpoint(pid_t, uint64_t addr);
