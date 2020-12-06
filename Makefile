@@ -2,7 +2,7 @@ CC=gcc
 LIBNAME = capstone
 
 mydbg: mydbg.o vector.o utils.o elfparser.o
-	$(CC) $^ -o $@ -g -l $(LIBNAME) -fPIE
+	$(CC) $^ -o $@ -g -l $(LIBNAME) -fPIE -Wall
 
 mydbg.o: mydbg.c
 	$(CC) -c $< -o $@ -l $(LIBNAME) -g

@@ -1,5 +1,6 @@
 #ifndef H_UTILS
 #define H_UTILS
+
 #include <ctype.h>
 #include <string.h>
 

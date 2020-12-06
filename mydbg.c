@@ -270,6 +270,10 @@ uint64_t get_temporary_seek(char *tmp_seek) {
 	return addr;
 }
 
+void tempfun(struct section_t *sections){
+	sections[1].section_addr = 1;
+}
+
 int parent_main(pid_t pid) {
 	int wait_status;
 
@@ -324,6 +328,7 @@ int parent_main(pid_t pid) {
 			} else {
 				printf("?<cmd>\n");
 				printf("is\n");
+				printf("iS\n");
 				printf("pd <len>\n");
 				printf("ds\n");
 				printf("dr [reg]\n");
@@ -456,10 +461,37 @@ int parent_main(pid_t pid) {
 			if (is_helper)
 				printf("is: info symbols");
 			else {
-				// std::string program((std::string)filename);
-				// elf_parser::Elf_parser elf_parser(program);
-				// std::vector<elf_parser::symbol_t> syms = elf_parser.get_symbols();
-    			// print_symbols(syms);
+				struct symbol_t *syms = (struct symbol_t *) malloc(sizeof(struct symbol_t) * 1);
+				get_symbols(sections, syms);
+				free(symbols);
+				symbols = syms;
+
+				printf("[Symbols]\n");
+				printf("%-4s\t%-10s\t%-6s\t%-6s\t%-4s\t%s\n", "nth", "paddr", "bind", "type", "size", "name");
+				int i = 0;
+				while (symbols[i].symbol_num == i){
+					printf("%-4d\t0x%08lx\t%-6s\t%-6s\t%-4x\t%s\n", symbols[i].symbol_num, symbols[i].symbol_value, "type", "bind", symbols[i].symbol_size, symbols[i].symbol_name);
+					i++;
+				}
+
+			}
+		}
+		else if (!strcmp(command, "iS")){
+			if (is_helper)
+				printf("is: info Sections");
+			else {
+				struct section_t *secs = (struct section_t *) malloc(sizeof(struct section_t) * 1);
+				get_sections(secs);
+				free(sections);
+				sections = secs;
+
+				printf("[Sections]\n");
+				printf("%-4s\t%-10s\t%-6s\t%-4s\t%s\n", "nth", "paddr", "size", "perm", "name");
+				int i = 0;
+				while(sections[i].section_index == i) {
+					printf("%-4d\t0x%08lx\t0x%-4x\t%-4s\t%s\n", i, sections[i].section_addr, sections[i].section_size, sections[i].section_flags, sections[i].section_name);
+					i++;
+				}
 			}
 		}
 		else if (strcmp(command, "pxq") == 0){
@@ -555,27 +587,6 @@ int child_main(const char *filename, char *argv[]) {
 	return 0;
 }
 
-// void print_sections(std::vector<elf_parser::section_t> &sections) {
-//     printf("  [Nr] %-16s %-16s %-16s %s\n", "Name", "Type", "Address", "Offset");
-//     printf("       %-16s %-16s %5s\n",
-//                     "Size", "EntSize", "Align");
-    
-//     for (auto &section : sections) {
-//         printf("  [%2d] %-16s %-16s %016llx %08llx\n", 
-//             section.section_index,
-//             section.section_name.c_str(),
-//             section.section_type.c_str(),
-//             section.section_addr, 
-//             section.section_offset);
-
-//         printf("       %016zx %016llx %5d\n",
-//             section.section_size, 
-//             section.section_ent_size,
-//             section.section_addr_align);
-//     }
-// }
-
-
 int main(int argc, char *argv[]) {
 	pid_t pid;
 	int result;
@@ -593,8 +604,7 @@ int main(int argc, char *argv[]) {
 
 	filename = argv[1];
 
-	get_sections(filename);
-	exit(0);
+	parse_elf(filename);
 
 	pid = fork();
 	if (pid) {

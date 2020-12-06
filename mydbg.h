@@ -47,6 +47,10 @@ Elf64_Ehdr header;
 const char *filename;
 uint64_t baseaddr;
 
+struct section_t *sections = NULL;
+struct symbol_t *symbols = NULL;
+
+
 const char *name[] = {
     "read",
     "write",

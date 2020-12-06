@@ -1,4 +1,6 @@
 #ifndef H_ELFPARSER
+#define H_ELFPARSER
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -10,29 +12,35 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+struct symbol_t {
+    char *symbol_index;
+    uint64_t symbol_value;
+    int symbol_num; //0
+    int symbol_size; //0
+    char *symbol_type;
+    char *symbol_bind;
+    char *symbol_visibility;
+    char *symbol_name;
+};
 
-// typedef struct {
-//     char *symbol_index;
-//     int *symbol_value;
-//     int symbol_num; //0
-//     int symbol_size; //0
-//     char *symbol_type;
-//     char *symbol_bind;
-//     char *symbol_visibility;
-//     char *symbol_name;
-//     char *symbol_section;      
-// } symbol_t;
+struct section_t {
+    int section_index; //0
+    uint64_t section_offset;
+    uint64_t section_addr;
+    char *section_name;
+    char *section_type; 
+    char *section_flags;
+    int section_size;
+    int section_ent_size;
+    int section_addr_align;
+    uint32_t section_link;
+};
 
-// typedef struct {
-//     int section_index; //0
-//     uint64_t *section_offset;
-//     uint64_t *section_addr;
-//     std::string section_name;
-//     char *section_type; 
-//     int section_size;
-//     int section_ent_size;
-//     int section_addr_align;
-// } section_t;
+void parse_elf(char *filename);
+void get_entrypoint();
+void get_programs();
+void get_symbols(sections, syms);
+void get_sections(sections);
 
 // int read_elf_header(const char *filename);
 // section_t *get_sections();
