@@ -42,6 +42,7 @@ uint64_t get_entrypoint();
 void get_programs();
 void get_symbols(struct section_t **sections, struct symbol_t **syms);
 void get_sections(struct section_t **sections);
+void get_strings();
 
 // int read_elf_header(const char *filename);
 // section_t *get_sections();

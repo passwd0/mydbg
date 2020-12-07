@@ -1,7 +1,7 @@
 #include "elfparser.h"
 
 uint8_t *mem;
-
+uint64_t mem_size;
 
 void parse_elf(char *filename){
 	int fd, i;
@@ -16,6 +16,7 @@ void parse_elf(char *filename){
 		perror("fstat");
 		exit(-1);
 	}
+	mem_size = st.st_size;
 
 	mem = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
 	if (mem == MAP_FAILED) {
@@ -31,6 +32,29 @@ void parse_elf(char *filename){
 	if (mem[0] != 0x7f && strcmp(&mem[1], "ELF")) {
 		fprintf(stderr, "%s is not an ELF file\n", filename);
 		exit(-1);
+	}
+}
+
+void get_strings(char *filter){
+	int i = 0;
+	char buf[250];
+	int c = 0;
+	int old_size = 0;
+	for (int i=0; i<mem_size; i++){
+		if (mem[i] > 32 && mem[i] < 127){
+			buf[c] = mem[i];
+			c++;
+		} else {
+			old_size = c;
+			buf[c] = '\0';
+			c = 0;
+		}
+		if (old_size > 4){
+			if (filter == NULL || strstr(buf, filter)) {
+				printf("%s\n", buf);
+			}
+			old_size = 0;
+		}
 	}
 }
 
@@ -133,22 +157,22 @@ void get_programs() {
 		switch(phdr[i].p_type) {
 			case PT_LOAD:
 				if (phdr[i].p_offset == 0)
-					printf("Text segment: 0x%x\n", phdr[i].p_vaddr);
+					printf("Text segment: 0x%lx\n", phdr[i].p_vaddr);
 				else
-					printf("Data segment: 0x%x\n", phdr[i].p_vaddr);
+					printf("Data segment: 0x%lx\n", phdr[i].p_vaddr);
 				break;
 			case PT_INTERP:
 				interp = strdup((char *) &mem[phdr[i].p_offset]);
 				printf("Interpreter: %s\n", interp);
 				break;
 			case PT_NOTE:
-				printf("Note segment: 0x%x\n", phdr[i].p_vaddr);
+				printf("Note segment: 0x%lx\n", phdr[i].p_vaddr);
 				break;
 			case PT_DYNAMIC:
-				printf("Dynamic segment: 0x%x\n", phdr[i].p_vaddr);
+				printf("Dynamic segment: 0x%lx\n", phdr[i].p_vaddr);
 				break;
 			case PT_PHDR:
-				printf("Phdr segment: 0x%x\n", phdr[i].p_vaddr);
+				printf("Phdr segment: 0x%lx\n", phdr[i].p_vaddr);
 				break;
 		}
 	}

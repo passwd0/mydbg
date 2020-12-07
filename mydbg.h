@@ -27,13 +27,6 @@
 #include "vect.h"
 #include "elfparser.h"
 
-// struct Breakpoint {
-// 	uint64_t addr;
-// 	uint64_t data;
-// 	int is_null;
-// 	int is_enabled;
-// } breakpoints[20];
-
 struct breakpoint_t {
 	uint64_t addr;
 	uint64_t data;
@@ -41,7 +34,6 @@ struct breakpoint_t {
 };
 
 struct flag_t {
-    uint64_t index;
     uint64_t addr;
     char *name;
 };
