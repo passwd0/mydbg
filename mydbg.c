@@ -58,19 +58,29 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 		code[1] = (mem & 0xff00) >> 8;
 		code[0] = (mem & 0xff);
 
-		count = cs_disasm(handle, code, 8, addr, 0, &insn);
+		count = cs_disasm(handle, code, 8, addr+offset, 0, &insn);
 		if (count > 0) { // assert
 			size_t curr_byte = 0;
 			uint64_t offset_tmp = 0;
 			for (size_t j = 0; j < count && j < ninstr; j++) {
-				printf("0x%"PRIx64":\t\t", insn[j].address + offset);
+				struct flag_t f = find_flag_by_addr(insn[j].address);
+				if (f.index != -1)
+					printf("; %s\n", f.name);
+				
+				printf("0x%016llx\t\t", insn[j].address + offset);
 				size_t sum_byte = curr_byte + insn[j].size;
 				for (; curr_byte < sum_byte; curr_byte++)
 					printf("%02x ", code[curr_byte]);
 				for (int i=insn[j].size; i<8; i++){
 					printf("   ");
 				}
-				printf("\t%s %s\n", insn[j].mnemonic, insn[j].op_str);
+				if (!strcmp(insn[j].mnemonic, "call")){
+					struct flag_t f = find_flag_by_addr(str2ui64(insn[j].op_str));
+					printf("\t%s %-25s", insn[j].mnemonic, f.name);
+				} else {
+					printf("\t%s %-25s", insn[j].mnemonic, insn[j].op_str);
+				}
+				printf("\n");
 
 				instructions[j].addr = insn[j].address;
 				instructions[j].type = insn[j].mnemonic;
@@ -88,7 +98,7 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 		}
 
 	} while (ninstr > 0);
-
+	free(code);
 	cs_close(&handle);
 	return instructions;
 }
@@ -309,6 +319,23 @@ struct flag_t find_flag(char *name){
 	while(vect_chk_bounds(vect_flags, i)){
 		struct flag_t flag = vect_at_flag(vect_flags, i);
 		if (!strcmp(flag.name, name))
+			return flag;
+		i++;
+	}
+	return f;
+}
+
+struct flag_t find_flag_by_addr(uint64_t addr){
+	struct flag_t f = {
+		.name = "",
+		.addr = 0,
+		.index = -1
+	};
+
+	int i = 0;
+	while(vect_chk_bounds(vect_flags, i)){
+		struct flag_t flag = vect_at_flag(vect_flags, i);
+		if (addr == flag.addr)
 			return flag;
 		i++;
 	}

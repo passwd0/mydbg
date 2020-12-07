@@ -90,6 +90,7 @@ void print_hex_quad(pid_t m_pid, uint64_t addr, int len);
 
 void add_flag(char* flag, uint64_t addr);
 struct flag_t find_flag(char *name);
+struct flag_t find_flag_by_addr(uint64_t addr);
 void show_flags();
 
 uint64_t str2ui64(char *str);
