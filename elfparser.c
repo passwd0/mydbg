@@ -1,6 +1,4 @@
 #include "elfparser.h"
-#include <assert.h>
-uint8_t *mem;
 
 void parse_elf(char *filename){
 	int fd, i;
@@ -33,9 +31,9 @@ void parse_elf(char *filename){
 	}
 }
 
-void get_entrypoint() {
+uint64_t get_entrypoint() {
 	Elf64_Ehdr *ehdr = (Elf64_Ehdr *) mem;
-	printf("Program Entry point: 0x%llx \n", ehdr->e_entry );
+	return ehdr->e_entry;
 }
 
 char *get_segment_type(uint32_t seg_type) {
@@ -100,25 +98,24 @@ char *get_flags(uint32_t f) {
     return flags;
 }
 
-void get_sections(struct section_t *sections) {
+void get_sections(struct section_t **sections) {
 	Elf64_Ehdr *ehdr = (Elf64_Ehdr *) mem;
 	Elf64_Shdr *shdr = (Elf64_Shdr *) &mem[ehdr->e_shoff];
 	char *StringTable = &mem[shdr[ehdr->e_shstrndx].sh_offset];
 
-	sections = realloc(sections, sizeof(struct section_t) * ehdr->e_shnum);
-
+	*sections = (struct section_t *) realloc(*sections, sizeof(struct section_t) * ehdr->e_shnum);
 	for (int i = 0; i < ehdr->e_shnum; i++)
 	{
-		sections[i].section_addr = shdr[i].sh_addr;
-		sections[i].section_addr_align = shdr[i].sh_addralign;
-		sections[i].section_ent_size = shdr[i].sh_entsize;
-		sections[i].section_index = i;
-		sections[i].section_name = &StringTable[shdr[i].sh_name];
-		sections[i].section_offset = shdr[i].sh_offset;
-		sections[i].section_size = shdr[i].sh_size;
-		sections[i].section_type = strdup(get_section_type(shdr[i].sh_type));
-		sections[i].section_flags = strdup(get_flags(shdr[i].sh_flags));
-		sections[i].section_link = shdr[i].sh_link;
+		(*sections)[i].section_index = i;
+		(*sections)[i].section_addr = shdr[i].sh_addr;
+		(*sections)[i].section_addr_align = shdr[i].sh_addralign;
+		(*sections)[i].section_ent_size = shdr[i].sh_entsize;
+		(*sections)[i].section_name = &StringTable[shdr[i].sh_name];
+		(*sections)[i].section_offset = shdr[i].sh_offset;
+		(*sections)[i].section_size = shdr[i].sh_size;
+		(*sections)[i].section_type = strdup(get_section_type(shdr[i].sh_type));
+		(*sections)[i].section_flags = strdup(get_flags(shdr[i].sh_flags));
+		(*sections)[i].section_link = shdr[i].sh_link;
 	}
 }
 
@@ -192,8 +189,8 @@ char *get_symbol_visibility(uint8_t sym_vis) {
     }
 }
 
-void get_symbols(struct section_t *sections, struct symbol_t *symbols) {
-	if (sections == NULL)
+void get_symbols(struct section_t **sections, struct symbol_t **symbols) {
+	if (*sections == NULL)
     	get_sections(sections);
 
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *) mem;
@@ -202,9 +199,9 @@ void get_symbols(struct section_t *sections, struct symbol_t *symbols) {
     // get strtab
     char *sh_strtab_p = NULL;
 	int i = 0;
-    while (sections[i].section_index == i) {
-        if(!strcmp(sections[i].section_type, "SHT_STRTAB") && !strcmp(sections[i].section_name, ".strtab")){
-            sh_strtab_p = (char*)mem + sections[i].section_offset;
+    while ((*sections)[i].section_index == i) {
+        if(!strcmp((*sections)[i].section_type, "SHT_STRTAB") && !strcmp((*sections)[i].section_name, ".strtab")){
+            sh_strtab_p = (char*)mem + (*sections)[i].section_offset;
             break;
         }
 		i++;
@@ -213,9 +210,9 @@ void get_symbols(struct section_t *sections, struct symbol_t *symbols) {
     // get dynstr
     char *sh_dynstr_p = NULL;
 	i = 0;
-    while (sections[i].section_index == i) {
-        if(!strcmp(sections[i].section_type, "SHT_STRTAB") && !(sections[i].section_name, ".dynstr")){
-            sh_dynstr_p = (char*)mem + sections[i].section_offset;
+    while ((*sections)[i].section_index == i) {
+        if(!strcmp((*sections)[i].section_type, "SHT_STRTAB") && !((*sections)[i].section_name, ".dynstr")){
+            sh_dynstr_p = (char*)mem + (*sections)[i].section_offset;
             break;
         }
 		i++;
@@ -223,8 +220,8 @@ void get_symbols(struct section_t *sections, struct symbol_t *symbols) {
 
 	int j = 0;
 	int sum_total_syms = 0;
-    while (sections[j].section_index == j) {
-        if(strcmp(sections[j].section_type, "SHT_SYMTAB") && strcmp(sections[j].section_type, "SHT_DYNSYM")){
+    while ((*sections)[j].section_index == j) {
+        if(strcmp((*sections)[j].section_type, "SHT_SYMTAB") && strcmp((*sections)[j].section_type, "SHT_DYNSYM")){
             j++;
 			continue;
 		}
@@ -232,22 +229,22 @@ void get_symbols(struct section_t *sections, struct symbol_t *symbols) {
 		Elf64_Sym* sym_tbl;
 		uint32_t i, total_syms;
 
-		sym_tbl = ((Elf64_Sym*) &(mem[sections[j].section_offset]));
+		sym_tbl = ((Elf64_Sym*) &(mem[(*sections)[j].section_offset]));
 	
-		uint32_t str_tbl_ndx = sections[j].section_link;
-		str_tbl = &(mem[sections[str_tbl_ndx].section_offset]);
+		uint32_t str_tbl_ndx = (*sections)[j].section_link;
+		str_tbl = &(mem[(*sections)[str_tbl_ndx].section_offset]);
 
-		total_syms = (sections[j].section_size/sizeof(Elf64_Sym));
+		total_syms = ((*sections)[j].section_size/sizeof(Elf64_Sym));
 		sum_total_syms += total_syms;
 		j++;
 	}
 
-	symbols = (struct symbol_t *) realloc(symbols, sizeof(struct symbol_t) * (sum_total_syms));
+	*symbols = (struct symbol_t *) realloc(*symbols, sizeof(struct symbol_t) * (sum_total_syms));
 
 	j = 0;
 	int old_total_syms = 0;
-	while (sections[j].section_index == j) {
-        if(strcmp(sections[j].section_type, "SHT_SYMTAB") && strcmp(sections[j].section_type, "SHT_DYNSYM")){
+	while ((*sections)[j].section_index == j) {
+        if(strcmp((*sections)[j].section_type, "SHT_SYMTAB") && strcmp((*sections)[j].section_type, "SHT_DYNSYM")){
             j++;
 			continue;
 		}
@@ -255,30 +252,24 @@ void get_symbols(struct section_t *sections, struct symbol_t *symbols) {
 		Elf64_Sym* sym_tbl;
 		uint32_t i, total_syms;
 
-		sym_tbl = ((Elf64_Sym*) &(mem[sections[j].section_offset]));
+		sym_tbl = ((Elf64_Sym*) &(mem[(*sections)[j].section_offset]));
 	
-		uint32_t str_tbl_ndx = sections[j].section_link;
-		str_tbl = &(mem[sections[str_tbl_ndx].section_offset]);
+		uint32_t str_tbl_ndx = (*sections)[j].section_link;
+		str_tbl = &(mem[(*sections)[str_tbl_ndx].section_offset]);
 
-		total_syms = (sections[j].section_size/sizeof(Elf64_Sym));
+		total_syms = ((*sections)[j].section_size/sizeof(Elf64_Sym));
 	
 		// printf("%d symbols\n", total_syms);
 
 		for(i=0; i< total_syms; i++) {
-			// printf("i: %d\t", i+old_total_syms);
-			// printf("0x%08lx ", sym_tbl[i].st_value);
-			// printf("0x%02x ", ELF32_ST_BIND(sym_tbl[i].st_info));
-			// printf("0x%02x ", ELF32_ST_TYPE(sym_tbl[i].st_info));
-			// printf("%s\n", (str_tbl + sym_tbl[i].st_name));
-
-			symbols[i+old_total_syms].symbol_num = i+old_total_syms;
-			symbols[i+old_total_syms].symbol_name = strdup(str_tbl + sym_tbl[i].st_name);
-			symbols[i+old_total_syms].symbol_bind = strdup(get_symbol_bind(sym_tbl[i].st_info));
+			(*symbols)[i+old_total_syms].symbol_num = i+old_total_syms;
+			(*symbols)[i+old_total_syms].symbol_name = strdup(str_tbl + sym_tbl[i].st_name);
+			(*symbols)[i+old_total_syms].symbol_bind = strdup(get_symbol_bind(sym_tbl[i].st_info));
 			// symbols[i+old_total_syms].symbol_index = get_symbol_index(sym_tbl[i].st_shndx);
-			symbols[i+old_total_syms].symbol_size = sym_tbl[i].st_size;
-			symbols[i+old_total_syms].symbol_type = strdup(get_symbol_type(sym_tbl[i].st_info));
-			symbols[i+old_total_syms].symbol_value = sym_tbl[i].st_value;
-			symbols[i+old_total_syms].symbol_visibility = strdup(get_symbol_visibility(sym_tbl[i].st_other));
+			(*symbols)[i+old_total_syms].symbol_size = sym_tbl[i].st_size;
+			(*symbols)[i+old_total_syms].symbol_type = strdup(get_symbol_type(sym_tbl[i].st_info));
+			(*symbols)[i+old_total_syms].symbol_value = sym_tbl[i].st_value;
+			(*symbols)[i+old_total_syms].symbol_visibility = strdup(get_symbol_visibility(sym_tbl[i].st_other));
 		}
 		j++;
 		old_total_syms += total_syms;

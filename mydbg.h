@@ -22,8 +22,9 @@
 
 #include <capstone/capstone.h>
 #include "utils.h"
-// #include "pmparser.h"
+#include "pmparser.h"
 #include "vector.h"
+#include "vect.h"
 #include "elfparser.h"
 
 struct Breakpoint {
@@ -32,20 +33,26 @@ struct Breakpoint {
 	int is_null;
 	int is_enabled;
 } breakpoints[20];
-struct Flag {
-	uint64_t addr;
-	char *name;
-	int is_null;
-} flags[20];
+
+struct flag_t {
+    uint64_t index;
+    uint64_t addr;
+    char *name;
+};
+
 typedef struct Instruction {
     uint64_t addr;
     char *type; 
 } Instruction;
 struct user_regs_struct regs;
-Elf64_Ehdr header;
+// Elf64_Ehdr header;
 
 const char *filename;
 uint64_t baseaddr;
+
+VECT_GENERATE_NAME(struct flag_t, flag)
+vect_flag *vect_flags;
+
 
 struct section_t *sections = NULL;
 struct symbol_t *symbols = NULL;
@@ -391,7 +398,7 @@ void add_breakpoint(pid_t, uint64_t addr);
 void show_breakpoints();
 void print_disas(pid_t m_pid, uint64_t addr, int len);
 void add_flag(char* flag, uint64_t addr);
-struct Flag find_flag(char *flag);
+struct flag_t find_flag(char *name);
 void show_flags();
 int parent_main(pid_t);
 int child_main(const char *filename, char *argv[]);
