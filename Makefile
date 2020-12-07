@@ -1,4 +1,4 @@
-CC=gcc
+CC=clang
 LIBNAME = capstone
 
 mydbg: mydbg.o vector.o utils.o elfparser.o pmparser.o

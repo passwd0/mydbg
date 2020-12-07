@@ -27,12 +27,18 @@
 #include "vect.h"
 #include "elfparser.h"
 
-struct Breakpoint {
+// struct Breakpoint {
+// 	uint64_t addr;
+// 	uint64_t data;
+// 	int is_null;
+// 	int is_enabled;
+// } breakpoints[20];
+
+struct breakpoint_t {
 	uint64_t addr;
 	uint64_t data;
-	int is_null;
 	int is_enabled;
-} breakpoints[20];
+};
 
 struct flag_t {
     uint64_t index;
@@ -44,8 +50,8 @@ typedef struct Instruction {
     uint64_t addr;
     char *type; 
 } Instruction;
+
 struct user_regs_struct regs;
-// Elf64_Ehdr header;
 
 const char *filename;
 uint64_t baseaddr;
@@ -53,10 +59,45 @@ uint64_t baseaddr;
 VECT_GENERATE_NAME(struct flag_t, flag)
 vect_flag *vect_flags;
 
+VECT_GENERATE_NAME(struct breakpoint_t, breakpoint)
+vect_breakpoint *vect_breakpoints;
 
 struct section_t *sections = NULL;
 struct symbol_t *symbols = NULL;
 
+siginfo_t get_signal_info(pid_t);
+void wait_for_signal(pid_t);
+
+uint64_t read_memory(pid_t, uint64_t address);
+void write_memory(pid_t, uint64_t address, uint64_t value);
+
+struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr);
+
+uint64_t get_reg(char *reg);
+void dump_regs(char *reg);
+void set_regs(pid_t, struct user_regs_struct regs);
+void set_reg(pid_t pid, char *reg, uint64_t value);
+void single_step(pid_t);
+void continue_execution(pid_t);
+
+struct breakpoint_t breakpoint_addr_to_data(uint64_t addr);
+void add_breakpoint(pid_t, uint64_t addr);
+void show_breakpoints();
+
+int virtual_memory(pid_t, int print);
+
+void print_hex_quad(pid_t m_pid, uint64_t addr, int len);
+
+void add_flag(char* flag, uint64_t addr);
+struct flag_t find_flag(char *name);
+void show_flags();
+
+uint64_t str2ui64(char *str);
+uint64_t get_temporary_seek(char *tmp_seek);
+
+void init();
+int parent_main(pid_t);
+int child_main(const char *filename, char *argv[]);
 
 const char *name[] = {
     "read",
@@ -383,26 +424,5 @@ const char *name[] = {
     "bpf",
     "execveat",
 };
-
-siginfo_t get_signal_info(pid_t);
-void wait_for_signal(pid_t);
-uint64_t read_memory(pid_t, uint64_t address);
-void write_memory(pid_t, uint64_t address, uint64_t value);
-void dump_regs(pid_t, char *reg);
-void set_regs(pid_t, struct user_regs_struct regs);
-void single_step(pid_t);
-void continue_execution(pid_t);
-int virtual_memory(pid_t, int print);
-struct Breakpoint breakpoint_addr_to_data(uint64_t addr);
-void add_breakpoint(pid_t, uint64_t addr);
-void show_breakpoints();
-void print_disas(pid_t m_pid, uint64_t addr, int len);
-void add_flag(char* flag, uint64_t addr);
-struct flag_t find_flag(char *name);
-void show_flags();
-int parent_main(pid_t);
-int child_main(const char *filename, char *argv[]);
-int is_dec(char *src);
-int is_hex(char *src);
 
 #endif

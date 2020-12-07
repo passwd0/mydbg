@@ -40,8 +40,8 @@ void parse_elf(char *filename);
 uint8_t *get_memory(uint64_t addr, uint64_t size);
 uint64_t get_entrypoint();
 void get_programs();
-void get_symbols(sections, syms);
-void get_sections(sections);
+void get_symbols(struct section_t **sections, struct symbol_t **syms);
+void get_sections(struct section_t **sections);
 
 // int read_elf_header(const char *filename);
 // section_t *get_sections();

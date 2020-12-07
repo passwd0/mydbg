@@ -14,8 +14,8 @@ void wait_for_signal(pid_t m_pid){
 	switch (get_signal_info(m_pid).si_code){
 	case SI_KERNEL:
 	{
-		struct Breakpoint breakpoint = breakpoint_addr_to_data(regs.rip-1);
-		if (!breakpoint.is_null && breakpoint.is_enabled){
+		struct breakpoint_t breakpoint = breakpoint_addr_to_data(regs.rip-1);
+		if (breakpoint.is_enabled){
 			write_memory(m_pid, breakpoint.addr, breakpoint.data);
 			breakpoint.is_enabled=0;
 			regs.rip = regs.rip-1;
@@ -93,7 +93,29 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 	return instructions;
 }
 
-void dump_regs(pid_t m_pid, char *reg){
+uint64_t get_reg(char *reg){
+	if (!strcmp(reg, "rip"))
+		return regs.rip;
+	if (!strcmp(reg, "rax"))
+		return regs.rax;
+	if (!strcmp(reg, "rbx"))
+		return regs.rbx;
+	if (!strcmp(reg, "rcx"))
+		return regs.rcx;
+	if (!strcmp(reg, "rdx"))
+		return regs.rdx;
+	if (!strcmp(reg, "rsp"))
+		return regs.rsp;
+	if (!strcmp(reg, "rbp"))
+		return regs.rbp;
+	if (!strcmp(reg, "rsi"))
+		return regs.rsi;
+	if (!strcmp(reg, "rdi"))
+		return regs.rdi;
+	return 0;
+}
+
+void dump_regs(char *reg){
 	if (reg == NULL || !strcmp(reg, "rip"))
 		printf("rip: 0x%08llx\n", regs.rip);
 	if (reg == NULL || !strcmp(reg, "rax"))
@@ -111,7 +133,47 @@ void dump_regs(pid_t m_pid, char *reg){
 	if (reg == NULL || !strcmp(reg, "rsi"))
 		printf("rsi: 0x%08llx\n", regs.rsi);
 	if (reg == NULL || !strcmp(reg, "rdi"))
-		printf("rdx: 0x%08llx\n", regs.rdi);
+		printf("rdi: 0x%08llx\n", regs.rdi);
+}
+
+void set_reg(pid_t pid, char *reg, uint64_t value){
+	if (reg == NULL || !strcmp(reg, "rip")) {
+		printf("rip: 0x%08llx -> 0x%08llx\n", regs.rip, value);
+		regs.rip = value;
+	}
+	if (reg == NULL || !strcmp(reg, "rax")) {
+		printf("rax: 0x%08llx -> 0x%08llx\n", regs.rax, value);
+		regs.rax = value;
+	}
+	if (reg == NULL || !strcmp(reg, "rbx")) {
+		printf("rbx: 0x%08llx -> 0x%08llx\n", regs.rbx, value);
+		regs.rbx = value;
+	}
+	if (reg == NULL || !strcmp(reg, "rcx")) {
+		printf("rcx: 0x%08llx -> 0x%08llx\n", regs.rcx, value);
+		regs.rcx = value;
+	}
+	if (reg == NULL || !strcmp(reg, "rdx")) {
+		printf("rdx: 0x%08llx -> 0x%08llx\n", regs.rdx, value);
+		regs.rdx = value;
+	}
+	if (reg == NULL || !strcmp(reg, "rsp")) {
+		printf("rsp: 0x%08llx -> 0x%08llx\n", regs.rsp, value);
+		regs.rsp = value;
+	}
+	if (reg == NULL || !strcmp(reg, "rbp")) {
+		printf("rbp: 0x%08llx -> 0x%08llx\n", regs.rbp, value);
+		regs.rbp = value;
+	}
+	if (reg == NULL || !strcmp(reg, "rsi")) {
+		printf("rsi: 0x%08llx -> 0x%08llx\n", regs.rsi, value);
+		regs.rsi = value;
+	}
+	if (reg == NULL || !strcmp(reg, "rdi")) {
+		printf("rdi: 0x%08llx -> 0x%08llx\n", regs.rdi, value);
+		regs.rdi = value;
+	}
+	set_regs(pid, regs);
 }
 
 void set_regs(pid_t m_pid, struct user_regs_struct new_regs){
@@ -133,42 +195,53 @@ void continue_execution(pid_t m_pid){
 	ptrace(PTRACE_CONT, m_pid, NULL, NULL);
 	wait_for_signal(m_pid);
 
-	printf("rip: 0x%08llx\t\top : 0x%016llx\n", regs.rip, read_memory(m_pid, regs.rip));
+	printf("rip: 0x%08llx\n", regs.rip);
 }
 
-struct Breakpoint breakpoint_addr_to_data(uint64_t addr){
-	for (int i=0; i<20; i++){
-		if (!breakpoints[i].is_null && breakpoints[i].addr == addr){
-			return breakpoints[i];
-		}
+struct breakpoint_t breakpoint_addr_to_data(uint64_t addr){
+	int i = 0;
+	while(vect_chk_bounds(vect_breakpoints, i)){
+		struct breakpoint_t breakpoint = vect_at_breakpoint(vect_breakpoints, i);
+		if (breakpoint.is_enabled && breakpoint.addr == addr)
+			return breakpoint;
+		i++;
 	}
-	struct Breakpoint breakpoint = {.addr=0, .data=0, .is_null=1};
+	struct breakpoint_t breakpoint = {.addr=-1, .data=0, .is_enabled=0};
 	return breakpoint;
 }
 
 void add_breakpoint(pid_t m_pid, uint64_t addr){
-	for (int i=0; i<20; i++){
-		if (breakpoints[i].is_null){
-			breakpoints[i].is_enabled = 1;
-			breakpoints[i].is_null = 0;
-			breakpoints[i].addr = addr;
-			breakpoints[i].data = read_memory(m_pid, addr);
-			uint64_t data_with_trap = (breakpoints[i].data & 0xFFFFFF00) | 0xCC;
-			write_memory(m_pid, addr, data_with_trap);
-			return;
+	uint8_t already_present = 0;
+
+	int i = 0;
+	while(vect_chk_bounds(vect_breakpoints, i)){
+		struct breakpoint_t breakpoint = vect_at_breakpoint(vect_breakpoints, i);
+
+		if (breakpoint.addr == addr){
+			already_present = 1;
 		}
+		i++;
 	}
-	perror("no breakpoints free left");
-	return;
+		
+	if (!already_present){
+		struct breakpoint_t breakpoint = {
+			.addr = addr,
+			.data = read_memory(m_pid, addr),
+			.is_enabled = 1
+		};
+		vect_push_breakpoint(vect_breakpoints, breakpoint);
+		uint64_t data_with_trap = (breakpoint.data & 0xFFFFFF00) | 0xCC;
+		write_memory(m_pid, addr, data_with_trap);
+	}
 }
 
 void show_breakpoints(){
-	for (int i=0; i<20; i++){
-		if (!breakpoints[i].is_null){
-			printf("breakpoint %d: 0x%08lx\n", i, breakpoints[i].addr);
-		}
+	int i = 0;
+	while(vect_chk_bounds(vect_breakpoints, i)){
+		struct breakpoint_t breakpoint = vect_at_breakpoint(vect_breakpoints, i);
+		printf("%016llx\n", breakpoint.addr);
+		i++;
 	}
-	return;
 }
 
 int virtual_memory(pid_t m_pid, int print){
@@ -193,44 +266,53 @@ int virtual_memory(pid_t m_pid, int print){
 
 void print_hex_quad(pid_t m_pid, uint64_t addr, int len){
 	for (int i=0; i < len; i++){
-		printf("0x%016llx\n", read_memory(m_pid, addr+sizeof(uint64_t)*i));
+		printf("0x%012llx:\t0x%016llx\n", addr+(sizeof(uint64_t)*i), read_memory(m_pid, addr+sizeof(uint64_t)*i));
 	}
 	return;
 }
 
 void add_flag(char *name, uint64_t addr){
-	if (name == NULL || !strcmp(name, "")) return;
+	if (name == NULL || !strcmp(name, "")){
+		return;
+	}
 	uint8_t already_present = 0;
 
 	int i = 0;
 	while(vect_chk_bounds(vect_flags, i)){
 		struct flag_t flag = vect_at_flag(vect_flags, i);
 
-		if (name != NULL && flag.name != NULL & !strcmp(name, flag.name)){
+		if (!strcmp(name, flag.name)){
 			already_present = 1;
 		}
 		i++;
 	}
 		
 	if (!already_present){
-		struct flag_t flag;
-		flag.name = name;
-		flag.addr = addr;
-		flag.index = i;
+		struct flag_t flag = {
+			.name=name,
+			.addr=addr,
+			.index=i};
 		vect_push_flag(vect_flags, flag);
 	}
 }
 
 struct flag_t find_flag(char *name){
-	struct flag_t flag;
-	for (int i=0; i<vect_flags->size; i++){
-		flag = vect_at_flag(vect_flags, i);
-		if (flag.name != NULL && !strcmp(flag.name, name))
+	struct flag_t f = {
+		.name = "",
+		.addr = 0,
+		.index = -1
+	};
+
+	if (name == NULL || !(strcmp(name, ""))) return f;
+
+	int i = 0;
+	while(vect_chk_bounds(vect_flags, i)){
+		struct flag_t flag = vect_at_flag(vect_flags, i);
+		if (!strcmp(flag.name, name))
 			return flag;
+		i++;
 	}
-	flag.name = "";
-	flag.addr = 0;
-	return flag;
+	return f;
 }
 
 void show_flags(){
@@ -240,14 +322,16 @@ void show_flags(){
 	}
 }
 
-uint64_t get_addr_or_flag(char *str){
+uint64_t str2ui64(char *str){
 	uint64_t addr = 0;
-	if (!is_hex(str)){
+	if (is_dec(str) || is_hex(str)){
+		addr = (uint64_t)strtol(str, NULL, 0);
+	} else {
 		struct flag_t f = find_flag(str);
 		addr = f.addr;
 	}
-	else{
-		addr = (uint64_t)strtol(str, NULL, 0);
+	if (addr == 0){
+		addr = get_reg(str);
 	}
 	return addr;
 }
@@ -258,7 +342,7 @@ uint64_t get_temporary_seek(char *tmp_seek) {
 		return 0;
 	if (tmp_seek[0] == '@'){
 		tmp_seek++;
-		addr = get_addr_or_flag(tmp_seek);
+		addr = str2ui64(tmp_seek);
 	}
 	return addr;
 }
@@ -275,18 +359,18 @@ void init(){
 	free(symbols);
 	symbols = syms;
 
-
-	// add flags
+	// init-add flags
 	vect_flags = vect_init_flag(8);
 	add_flag("entry0", baseaddr + entrypoint);
 
 	int i = 0;
 	while (symbols[i].symbol_num == i){
-		if (symbols[i].symbol_name != NULL && strcmp(symbols[i].symbol_name, "")){
-			add_flag(symbols[i].symbol_name, baseaddr + symbols[i].symbol_value);
-		}
+		add_flag(symbols[i].symbol_name, baseaddr + symbols[i].symbol_value);
 		i++;
 	}
+
+	// init breakpoint
+	vect_breakpoints = vect_init_breakpoint(8);
 }
 
 int parent_main(pid_t pid) {
@@ -299,7 +383,7 @@ int parent_main(pid_t pid) {
 	init();
 	
 	// commands
-	fputs("\ndbg> ", stdout);
+	printf("\ndbg:%12llx> ", regs.rip);
 	fflush(stdout);
 
 	vector input;
@@ -330,37 +414,36 @@ int parent_main(pid_t pid) {
 		if (vector_total(&input) > 0)
 			command = (char*)vector_get(&input, 0);
 		
+		// check for help
 		int is_helper = 0;
-		if (command[0] == '?'){
+		if (strlen(command) > 0 && command[strlen(command)-1] == '?'){
 			if (strlen(command) > 1){
 				is_helper = 1;
-				command++;
+				command[strlen(command)-1] = '\0';
 			} else {
-				printf("?<cmd>\n");
-				printf("is\n");
-				printf("iS\n");
-				printf("pd\n");
-				printf("pd [len]\n");
-				printf("ds\n");
-				printf("dr\n");
-				printf("dr [reg]\n");
-				printf("dc\n");
-				printf("dcc\n");
-				printf("dcr\n");
-				printf("dcu [addr]\n");
-				printf("db\n");
-				printf("db [addr]\n");
-				printf("pxq\n");
-				printf("f \n");
-				printf("f [name]\n");
-				printf("dm\n");
-				printf("q\n");
+				printf("%-20s %s\n", "?", "help");
+				printf("%-20s %s\n", "is", "info symbols");
+				printf("%-20s %s\n", "iS", "info sections");
+				printf("%-20s %s\n", "f", "flags");
+				printf("%-20s %s\n", "pd", "print disassembly");
+				printf("%-20s %s\n", "pxq", "show hex quadwords");
+				printf("%-20s %s\n", "ds", "debug step");
+				printf("%-20s %s\n", "dr", "show registers");
+				printf("%-20s %s\n", "dc", "debug continue");
+				// printf("%-20s %s\n", "dcc", "debug continue until call");
+				// printf("%-20s %s\n", "dcr", "debug continue until ret");
+				// printf("dcu [addr]\n");
+				printf("%-20s %s\n", "db", "breakpoints");
+				printf("%-20s %s\n", "dm", "debug memory");
+				printf("%-20s %s\n", "q", "quit");
 			}
 		}
 
 		if (!strcmp(command, "pd")) {
-			if (is_helper)
-				printf("pd <len>: print dissasembly\n");
+			if (is_helper) {
+				printf("%-20s %s\n", "pd", "print dissasembly");
+				printf("%-20s %s\n", "pd [len]", "disassemble N instructions");
+			}
 			else {
 				// len: number bytes to disassembly
 				uint8_t len = 0;
@@ -383,30 +466,44 @@ int parent_main(pid_t pid) {
 		}
 		else if (strcmp(command, "ds") == 0){
 			if (is_helper)
-				printf("ds: debug step\n");
+				printf("%-20s %s\n", "ds", "debug step");
 			else
 				single_step(pid);
 		}
 		else if (strcmp(command, "dr") == 0){
-			if (is_helper)
-				printf("dr <reg>: debug registers\n");
+			if (is_helper){
+				printf("%-20s %s\n", "dr", "show registers");
+				printf("%-20s %s\n", "dr [reg]", "show value of given register");
+				printf("%-20s %s\n", "dr [reg] [value]", "set value of given register");
+			}
 			else {
-				char *tmp = NULL;
-				if (vector_total(&input) > 1) {
-					tmp = (char *) vector_get(&input, 1);
-				}
-				dump_regs(pid, tmp);
+				char *reg = NULL;
+				char *param2 = NULL;
+				if (vector_total(&input) > 2) {
+					reg = (char *) vector_get(&input, 1);
+					param2 = (char *) vector_get(&input, 2);
+					uint64_t value = str2ui64(param2);
+					set_reg(pid, reg, value);
+				} else if (vector_total(&input) > 1) {
+					reg = (char *) vector_get(&input, 1);
+					dump_regs(reg);
+				} else 
+					dump_regs(NULL);				
 			}
 		}
 		else if (strcmp(command, "dc") == 0){
-			if (is_helper)
-				printf("dc: debug continue\n");
+			if (is_helper) {
+				printf("%-20s %s\n", "dc", "debug continue");
+				printf("%-20s %s\n", "dcc", "debug continue until call");
+				printf("%-20s %s\n", "dcr", "debug continue until ret");
+				printf("%-20s %s\n", "dcu [addr]", "debug continue until");
+			}
 			else
 				continue_execution(pid);
 		}
 		else if (!strcmp(command, "dcc")){
 			if (is_helper)
-				printf("dcc: debug continue call\n");
+				printf("%-20s %s\n", "dcc", "debug continue call");
 			else {
 				uint64_t old_rip;
 				do {
@@ -420,7 +517,7 @@ int parent_main(pid_t pid) {
 		}
 		else if (!strcmp(command, "dcr")){
 			if (is_helper)
-				printf("dcr: debug continue return\n");
+				printf("%-20s %s\n", "dcr", "debug continue return");
 			else {
 				uint64_t old_rip;
 				do {
@@ -434,12 +531,12 @@ int parent_main(pid_t pid) {
 		}
 		else if (!strcmp(command, "dcu")){
 			if (is_helper)
-				printf("dcu: debug continue until\n");
+				printf("%-20s %s\n", "dcu", "debug continue until");
 			else {
 				uint64_t addr_until = 0;
 				if (vector_total(&input) > 1) {
 					char *until_param = (char *) vector_get(&input, 1);
-					addr_until = get_addr_or_flag(until_param);
+					addr_until = str2ui64(until_param);
 				}
 				if (addr_until <= 0) continue;
 
@@ -454,13 +551,15 @@ int parent_main(pid_t pid) {
 			}
 		}
 		else if (!strcmp(command, "db")){
-			if (is_helper)
-				printf("db <addr>: debug breakpoints\n");
+			if (is_helper){
+				printf("%-20s %s\n", "db", "show breakpoints");
+				printf("%-20s %s\n", "db [addr]", "add breakpoints");
+			}
 			else {
 				uint64_t addr = 0;
 				if (vector_total(&input) > 1){
 					char *tmp = (char *) vector_get(&input, 1);
-					addr = get_addr_or_flag(tmp);
+					addr = str2ui64(tmp);
 					if (addr != 0){
 						printf("%s -> 0x%08lx\n", tmp, addr);
 						add_breakpoint(pid, addr);
@@ -473,7 +572,7 @@ int parent_main(pid_t pid) {
 		}
 		else if (!strcmp(command, "is")){
 			if (is_helper)
-				printf("is: info symbols");
+				printf("%-20s %s\n", "is", "info symbols");
 			else {
 				struct symbol_t *syms = (struct symbol_t *) malloc(sizeof(struct symbol_t) * 1);
 				get_symbols(&sections, &syms);
@@ -492,7 +591,7 @@ int parent_main(pid_t pid) {
 		}
 		else if (!strcmp(command, "iS")){
 			if (is_helper)
-				printf("is: info Sections");
+				printf("%-20s %s\n", "iS", "info Sections");
 			else {
 				struct section_t *secs = (struct section_t *) malloc(sizeof(struct section_t) * 1);
 				get_sections(&secs);
@@ -509,29 +608,29 @@ int parent_main(pid_t pid) {
 			}
 		}
 		else if (strcmp(command, "pxq") == 0){
-			if (is_helper)
-				printf("pxq [len]: print hex quadword\n");
+			if (is_helper) {
+				printf("%-20s %s\n", "pxq", "show hex quadwords");
+				printf("%-20s %s\n", "pxq [len]", "show hex quadwords");
+			}
 			else {
 				int len = 0x20;
 				uint64_t addr = regs.rip;
 				if (vector_total(&input) > 1){
-					char *tmp = (char *) vector_get(&input, 1);
-					if (is_dec(tmp)){
-						len = atoi(tmp);
-					}else if(isxdigit(*tmp)){
-						sscanf(tmp, "%x", &len);
-					}
+					char *param1 = (char *) vector_get(&input, 1);
+					len = str2ui64(param1);
 				}
 				if (vector_total(&input) > 2){
-					char *tmp = (char *) vector_get(&input, 2);
-					addr = get_addr_or_flag(tmp);
+					char *param2 = (char *) vector_get(&input, 2);
+					addr = get_temporary_seek(param2);
 				}
 				print_hex_quad(pid, addr, len);
 			}
 		}
 		else if (!strcmp(command, "f")){
-			if (is_helper)
-				printf("f [name]: flags\n");
+			if (is_helper) {
+				printf("%-20s %s\n", "f", "show flags");
+				printf("%-20s %s\n", "f [name]", "add flag");
+			}
 			else {
 				if (vector_total(&input) > 1) {
 					uint64_t addr = regs.rip;
@@ -549,13 +648,13 @@ int parent_main(pid_t pid) {
 		}
 		else if (strcmp(command, "dm") == 0){
 			if (is_helper)
-				printf("dm: debug memory\n");
+				printf("%-20s %s\n", "dm", "list memory maps of target process");
 			else
 				virtual_memory(pid, 1);
 		}
 		else if (strcmp(command, "q") == 0){
 			if (is_helper)
-				printf("q: quit\n");
+				printf("%-20s %s\n", "q", "quit");
 			else {
 				kill(pid, SIGKILL);
 				wait_for_signal(pid);
@@ -568,7 +667,7 @@ int parent_main(pid_t pid) {
 				printf("command not found\n");
 		}
 		vector_free(&input);
-		printf("\ndbg> ");
+		printf("\ndbg:%12llx> ", regs.rip);
 		fflush(stdout);
 	}
 	return 0;
@@ -591,11 +690,6 @@ int child_main(const char *filename, char *argv[]) {
 int main(int argc, char *argv[]) {
 	pid_t pid;
 	int result;
-
-	for (int i=0; i<20; i++){
-		breakpoints[i].is_null = 1;
-		breakpoints[i].is_enabled = 0;
-	}
 
 	if (argc < 2) {
 		printf("usage: \n%s execfile [options]\n", argv[0]);
