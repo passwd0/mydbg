@@ -147,7 +147,6 @@ struct Breakpoint breakpoint_addr_to_data(uint64_t addr){
 }
 
 void add_breakpoint(pid_t m_pid, uint64_t addr){
-	addr += baseaddr;
 	for (int i=0; i<20; i++){
 		if (breakpoints[i].is_null){
 			breakpoints[i].is_enabled = 1;
@@ -199,16 +198,13 @@ void print_hex_quad(pid_t m_pid, uint64_t addr, int len){
 	return;
 }
 
-void add_flag(char* name, uint64_t addr){
+void add_flag(char *name, uint64_t addr){
 	if (name == NULL || !strcmp(name, "")) return;
 	uint8_t already_present = 0;
-	printf("%s\n", name);
 
 	int i = 0;
 	while(vect_chk_bounds(vect_flags, i)){
-		// printf("%d\n", i);
 		struct flag_t flag = vect_at_flag(vect_flags, i);
-		// printf("cmp: %s - %s\n", name, flag.name);
 
 		if (name != NULL && flag.name != NULL & !strcmp(name, flag.name)){
 			already_present = 1;
@@ -218,13 +214,10 @@ void add_flag(char* name, uint64_t addr){
 		
 	if (!already_present){
 		struct flag_t flag;
-		char *n = strdup(name);
-		flag.name = n;
+		flag.name = name;
 		flag.addr = addr;
 		flag.index = i;
 		vect_push_flag(vect_flags, flag);
-			printf("added: %s\n", flag.name);
-
 	}
 }
 
@@ -285,12 +278,12 @@ void init(){
 
 	// add flags
 	vect_flags = vect_init_flag(8);
-	add_flag("entry0", entrypoint);
+	add_flag("entry0", baseaddr + entrypoint);
 
-	int i = 1;
+	int i = 0;
 	while (symbols[i].symbol_num == i){
 		if (symbols[i].symbol_name != NULL && strcmp(symbols[i].symbol_name, "")){
-			add_flag(symbols[i].symbol_name, symbols[i].symbol_value);
+			add_flag(symbols[i].symbol_name, baseaddr + symbols[i].symbol_value);
 		}
 		i++;
 	}
@@ -346,16 +339,20 @@ int parent_main(pid_t pid) {
 				printf("?<cmd>\n");
 				printf("is\n");
 				printf("iS\n");
-				printf("pd <len>\n");
+				printf("pd\n");
+				printf("pd [len]\n");
 				printf("ds\n");
+				printf("dr\n");
 				printf("dr [reg]\n");
 				printf("dc\n");
 				printf("dcc\n");
 				printf("dcr\n");
-				printf("dcu <addr>\n");
+				printf("dcu [addr]\n");
+				printf("db\n");
 				printf("db [addr]\n");
 				printf("pxq\n");
-				printf("f\n");
+				printf("f \n");
+				printf("f [name]\n");
 				printf("dm\n");
 				printf("q\n");
 			}
@@ -513,7 +510,7 @@ int parent_main(pid_t pid) {
 		}
 		else if (strcmp(command, "pxq") == 0){
 			if (is_helper)
-				printf("pxq: print hex quadword\n");
+				printf("pxq [len]: print hex quadword\n");
 			else {
 				int len = 0x20;
 				uint64_t addr = regs.rip;
@@ -527,14 +524,7 @@ int parent_main(pid_t pid) {
 				}
 				if (vector_total(&input) > 2){
 					char *tmp = (char *) vector_get(&input, 2);
-					if (is_dec(tmp)){
-						addr = atoi(tmp);
-					}else if(is_hex(tmp)){
-						sscanf(tmp, "%llx", &addr);
-					}else{
-						struct flag_t tmp_flag = find_flag(tmp);
-						addr = tmp_flag.addr;
-					}
+					addr = get_addr_or_flag(tmp);
 				}
 				print_hex_quad(pid, addr, len);
 			}

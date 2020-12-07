@@ -36,9 +36,8 @@ struct section_t {
     uint32_t section_link;
 };
 
-uint8_t *mem;
-
 void parse_elf(char *filename);
+uint8_t *get_memory(uint64_t addr, uint64_t size);
 uint64_t get_entrypoint();
 void get_programs();
 void get_symbols(sections, syms);

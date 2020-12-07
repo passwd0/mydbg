@@ -1,5 +1,8 @@
 #include "elfparser.h"
 
+uint8_t *mem;
+
+
 void parse_elf(char *filename){
 	int fd, i;
 	struct stat st;
