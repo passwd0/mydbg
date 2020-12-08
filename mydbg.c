@@ -572,7 +572,7 @@ int parent_main(pid_t pid) {
 		}while(tmp[j++] != '\n');
 
 		// check for seek and filter
-		uint64_t seek;
+		uint64_t seek = regs.rip;
 		filter = NULL;
 		uint8_t nseek = -1;
 		uint8_t nfilter = -1;
@@ -647,6 +647,8 @@ int parent_main(pid_t pid) {
 					len = atoi(len_param);
 				}
 				if (len <= 0) len = 1;
+
+				printf("addr: %lx\n", seek);
 				dump_code(pid, seek, len);
 			}
 		}
