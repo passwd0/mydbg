@@ -14,12 +14,23 @@ void wait_for_signal(pid_t m_pid){
 	switch (get_signal_info(m_pid).si_code){
 	case SI_KERNEL:
 	{
-		struct breakpoint_t breakpoint = breakpoint_addr_to_data(regs.rip-1);
-		if (breakpoint.is_enabled){
-			write_memory(m_pid, breakpoint.addr, breakpoint.data);
-			regs.rip = regs.rip-1;
-			set_regs(m_pid, regs);
+		int i = breakpoint_addr2idx(regs.rip-1);
+		if (i < 0){
+			perror("Non e' stato trovato alcun breakpoint!");
+			exit(1);
 		}
+		struct breakpoint_t bp = vect_at_breakpoint(vect_breakpoints, i);
+		bp.is_enabled = 0;
+		if (bp.is_repeat == RREPEAT){
+			bp.rtimes--;
+		}
+		vect_set_breakpoint(vect_breakpoints, i, bp);
+		
+		uint64_t data = read_memory(m_pid, bp.addr);
+		write_memory(m_pid, bp.addr, (data & 0xffffffffffffff00) | bp.data);
+		regs.rip = regs.rip-1;
+		set_regs(m_pid, regs);
+		
 		break;
 	}
 	}
@@ -237,7 +248,22 @@ void set_regs(pid_t m_pid, struct user_regs_struct new_regs){
 	ptrace(PTRACE_SETREGS, m_pid, NULL, &new_regs);
 }
 
-void single_step(pid_t m_pid){
+void set_breakpoint_in_code(pid_t m_pid){
+	int i = 0;
+	while (vect_chk_bounds(vect_breakpoints, i)){
+		struct breakpoint_t bp = vect_at_breakpoint(vect_breakpoints, i);
+		if (bp.addr != regs.rip && !bp.is_enabled && (bp.is_repeat == RALWAYS || (bp.is_repeat == RREPEAT && bp.rtimes > 0))){
+			uint64_t data = read_memory(m_pid, bp.addr);
+			write_memory(m_pid, bp.addr, (data & 0xffffffffffffff00) | 0xcc);
+			bp.is_enabled = 1;
+			vect_set_breakpoint(vect_breakpoints, i, bp);
+		}
+		i++;
+	}
+	
+}
+
+void single_step(pid_t m_pid){	
 	if (ptrace(PTRACE_SINGLESTEP, m_pid, NULL, NULL) < 0){
 		perror("step");
 		return;
@@ -246,28 +272,29 @@ void single_step(pid_t m_pid){
 }
 
 void continue_execution(pid_t m_pid){
+	single_step(m_pid);
+
+	set_breakpoint_in_code(m_pid);
+
 	if (ptrace(PTRACE_CONT, m_pid, NULL, NULL) < 0) {
 		perror("cont");
 		return;
 	}
 	wait_for_signal(m_pid);
-
-	printf("rip: 0x%08lx\n", regs.rip);
 }
 
-struct breakpoint_t breakpoint_addr_to_data(uint64_t addr){
+uint64_t breakpoint_addr2idx(uint64_t addr){
 	int i = 0;
 	while(vect_chk_bounds(vect_breakpoints, i)){
 		struct breakpoint_t breakpoint = vect_at_breakpoint(vect_breakpoints, i);
-		if (breakpoint.is_enabled && breakpoint.addr == addr)
-			return breakpoint;
+		if (breakpoint.addr == addr)
+			return i;
 		i++;
 	}
-	struct breakpoint_t breakpoint = {.addr=-1, .data=0, .is_enabled=0};
-	return breakpoint;
+	return -1;
 }
 
-void add_breakpoint(pid_t m_pid, uint64_t addr){
+void add_breakpoint(pid_t m_pid, uint64_t addr, uint8_t rtimes){
 	uint8_t already_present = 0;
 
 	int i = 0;
@@ -283,20 +310,22 @@ void add_breakpoint(pid_t m_pid, uint64_t addr){
 	if (!already_present){
 		struct breakpoint_t breakpoint = {
 			.addr = addr,
-			.data = read_memory(m_pid, addr),
-			.is_enabled = 1
+			.data = read_memory(m_pid, addr) & 0xff,
+			.is_enabled = 0,
+			.rtimes = rtimes,
+			.is_repeat = rtimes > 0
 		};
 		vect_push_breakpoint(vect_breakpoints, breakpoint);
-		uint64_t data_with_trap = (breakpoint.data & 0xFFFFFF00) | 0xCC;
-		write_memory(m_pid, addr, data_with_trap);
 	}
 }
 
 void show_breakpoints(){
 	int i = 0;
+	printf("%-4s %-14s %-6s %-5s\n", "idx", "address", "rstate", "times");
 	while(vect_chk_bounds(vect_breakpoints, i)){
-		struct breakpoint_t breakpoint = vect_at_breakpoint(vect_breakpoints, i);
-		printf("0x%012lx\n", breakpoint.addr);
+		struct breakpoint_t bp = vect_at_breakpoint(vect_breakpoints, i);
+		char *repeat = bp.is_repeat ? "R" : "A";
+		printf("%-4d 0x%012lx %-6s %-5d\n", i, bp.addr, repeat, bp.rtimes);
 		i++;
 	}
 }
@@ -640,17 +669,11 @@ int parent_main(pid_t pid) {
 				if (vector_total(&input) > 1) {
 					char *until_param = (char *) vector_get(&input, 1);
 					addr_until = str2ui64(until_param);
+					add_breakpoint(pid, addr_until, 1);
 				}
 				if (addr_until <= 0) continue;
 
-				uint64_t old_rip;
-				do {
-					old_rip = regs.rip;
-					single_step(pid);
-					struct Instruction *instructions = dump_code(pid, regs.rip, 1);
-					if (instructions->addr == addr_until)
-						break;
-				} while(old_rip != regs.rip);
+				continue_execution(pid);
 			}
 		}
 		else if (!strcmp(command, "db")){
@@ -664,8 +687,7 @@ int parent_main(pid_t pid) {
 					char *tmp = (char *) vector_get(&input, 1);
 					addr = str2ui64(tmp);
 					if (addr != 0){
-						printf("%s -> 0x%08lx\n", tmp, addr);
-						add_breakpoint(pid, addr);
+						add_breakpoint(pid, addr, 0);
 					}
 				}
 				else{

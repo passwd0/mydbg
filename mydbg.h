@@ -27,10 +27,15 @@
 #include "vect.h"
 #include "elfparser.h"
 
+#define RREPEAT 1
+#define RALWAYS 0
+
 struct breakpoint_t {
 	uint64_t addr;
-	uint64_t data;
-	int is_enabled;
+	uint8_t data;
+	int is_enabled;         // bp is enabled (not manually changable)
+    uint8_t rtimes;         // repeat n times
+    uint8_t is_repeat;        // 0: ignore rtimes,    1: --rtimes <= 0 ? is_enabled = 0
 };
 
 struct flag_t {
@@ -72,8 +77,8 @@ void set_reg(pid_t pid, char *reg, uint64_t value);
 void single_step(pid_t);
 void continue_execution(pid_t);
 
-struct breakpoint_t breakpoint_addr_to_data(uint64_t addr);
-void add_breakpoint(pid_t, uint64_t addr);
+uint64_t breakpoint_addr2idx(uint64_t addr);
+void add_breakpoint(pid_t, uint64_t addr, uint8_t repeat);
 void show_breakpoints();
 
 int virtual_memory(pid_t, int print);
