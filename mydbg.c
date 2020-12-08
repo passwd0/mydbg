@@ -73,24 +73,26 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 			size_t curr_byte = 0;
 			uint64_t offset_tmp = 0;
 			for (size_t j = 0; j < count && j < ninstr; j++) {
+				char line[255];
+				size_t nline = 0;
 				struct flag_t f = find_flag_by_addr(insn[j].address);
 				if (f.addr != 0)
-					printf("; %s\n", f.name);
+					nline += sprintf(line+nline, "; %s\n", f.name);
 				
-				printf("0x%016lx\t\t", insn[j].address + offset);
+				nline += sprintf(line+nline, "0x%016lx\t\t", insn[j].address + offset);
 				size_t sum_byte = curr_byte + insn[j].size;
 				for (; curr_byte < sum_byte; curr_byte++)
-					printf("%02x ", code[curr_byte]);
+					nline += sprintf(line+nline, "%02x ", code[curr_byte]);
 				for (int i=insn[j].size; i<8; i++){
-					printf("   ");
+					nline += sprintf(line+nline, "   ");
 				}
 				if (!strcmp(insn[j].mnemonic, "call")){
 					struct flag_t f = find_flag_by_addr(str2ui64(insn[j].op_str));
-					printf("\t%s %-25s", insn[j].mnemonic, f.name);
+					nline += sprintf(line+nline, "\t%s %-25s", insn[j].mnemonic, f.name);
 				} else {
-					printf("\t%s %-25s", insn[j].mnemonic, insn[j].op_str);
+					nline += sprintf(line+nline, "\t%s %-25s", insn[j].mnemonic, insn[j].op_str);
 				}
-				printf("\n");
+				printf_filter("%s\n", line);
 
 				instructions[j].addr = insn[j].address;
 				instructions[j].type = insn[j].mnemonic;
@@ -103,7 +105,7 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 			
 			cs_free(insn, count);
 		} else {
-			printf("ERROR: Failed to disassemble given code!\n");
+			printf_filter("ERROR: Failed to disassemble given code!\n");
 			break;
 		}
 
@@ -137,108 +139,108 @@ uint64_t get_reg(char *reg){
 
 void dump_regs(char *reg){
 	if (reg == NULL || !strcmp(reg, "rax"))
-		printf("%-3s = 0x%08lx\n", "rax", regs.rax);
+		printf_filter("%-3s = 0x%08lx\n", "rax", regs.rax);
 	if (reg == NULL || !strcmp(reg, "rbx"))
-		printf("%-3s = 0x%08lx\n", "rbx", regs.rbx);
+		printf_filter("%-3s = 0x%08lx\n", "rbx", regs.rbx);
 	if (reg == NULL || !strcmp(reg, "rcx"))
-		printf("%-3s = 0x%08lx\n", "rcx", regs.rcx);
+		printf_filter("%-3s = 0x%08lx\n", "rcx", regs.rcx);
 	if (reg == NULL || !strcmp(reg, "rdx"))
-		printf("%-3s = 0x%08lx\n", "rdx", regs.rdx);
+		printf_filter("%-3s = 0x%08lx\n", "rdx", regs.rdx);
 	if (reg == NULL || !strcmp(reg, "rsi"))
-		printf("%-3s = 0x%08lx\n", "rsi", regs.rsi);
+		printf_filter("%-3s = 0x%08lx\n", "rsi", regs.rsi);
 	if (reg == NULL || !strcmp(reg, "rdi"))
-		printf("%-3s = 0x%08lx\n", "rdi", regs.rdi);
+		printf_filter("%-3s = 0x%08lx\n", "rdi", regs.rdi);
 	if (reg == NULL || !strcmp(reg, "r8"))
-		printf("%-3s = 0x%08lx\n", "r8", regs.r8);
+		printf_filter("%-3s = 0x%08lx\n", "r8", regs.r8);
 	if (reg == NULL || !strcmp(reg, "r9"))
-		printf("%-3s = 0x%08lx\n", "r9", regs.r9);
+		printf_filter("%-3s = 0x%08lx\n", "r9", regs.r9);
 	if (reg == NULL || !strcmp(reg, "r10"))
-		printf("%-3s = 0x%08lx\n", "r10", regs.r10);
+		printf_filter("%-3s = 0x%08lx\n", "r10", regs.r10);
 	if (reg == NULL || !strcmp(reg, "r11"))
-		printf("%-3s = 0x%08lx\n", "r11", regs.r11);
+		printf_filter("%-3s = 0x%08lx\n", "r11", regs.r11);
 	if (reg == NULL || !strcmp(reg, "r12"))
-		printf("%-3s = 0x%08lx\n", "r12", regs.r12);
+		printf_filter("%-3s = 0x%08lx\n", "r12", regs.r12);
 	if (reg == NULL || !strcmp(reg, "r13"))
-		printf("%-3s = 0x%08lx\n", "r13", regs.r13);
+		printf_filter("%-3s = 0x%08lx\n", "r13", regs.r13);
 	if (reg == NULL || !strcmp(reg, "r14"))
-		printf("%-3s = 0x%08lx\n", "r14", regs.r14);
+		printf_filter("%-3s = 0x%08lx\n", "r14", regs.r14);
 	if (reg == NULL || !strcmp(reg, "r15"))
-		printf("%-3s = 0x%08lx\n", "r15", regs.r15);
+		printf_filter("%-3s = 0x%08lx\n", "r15", regs.r15);
 	if (reg == NULL || !strcmp(reg, "rip"))
-		printf("%-3s = 0x%08lx\n", "rip", regs.rip);
+		printf_filter("%-3s = 0x%08lx\n", "rip", regs.rip);
 	if (reg == NULL || !strcmp(reg, "rsp"))
-		printf("%-3s = 0x%08lx\n", "rsp", regs.rsp);
+		printf_filter("%-3s = 0x%08lx\n", "rsp", regs.rsp);
 	if (reg == NULL || !strcmp(reg, "rbp"))
-		printf("%-3s = 0x%08lx\n", "rbp", regs.rbp);
+		printf_filter("%-3s = 0x%08lx\n", "rbp", regs.rbp);
 }
 
 void set_reg(pid_t pid, char *reg, uint64_t value){
 	if (reg == NULL || !strcmp(reg, "rip")) {
-		printf("rip: 0x%08lx -> 0x%08lx\n", regs.rip, value);
+		printf_filter("rip: 0x%08lx -> 0x%08lx\n", regs.rip, value);
 		regs.rip = value;
 	}
 	if (reg == NULL || !strcmp(reg, "rax")) {
-		printf("rax: 0x%08lx -> 0x%08lx\n", regs.rax, value);
+		printf_filter("rax: 0x%08lx -> 0x%08lx\n", regs.rax, value);
 		regs.rax = value;
 	}
 	if (reg == NULL || !strcmp(reg, "rbx")) {
-		printf("rbx: 0x%08lx -> 0x%08lx\n", regs.rbx, value);
+		printf_filter("rbx: 0x%08lx -> 0x%08lx\n", regs.rbx, value);
 		regs.rbx = value;
 	}
 	if (reg == NULL || !strcmp(reg, "rcx")) {
-		printf("rcx: 0x%08lx -> 0x%08lx\n", regs.rcx, value);
+		printf_filter("rcx: 0x%08lx -> 0x%08lx\n", regs.rcx, value);
 		regs.rcx = value;
 	}
 	if (reg == NULL || !strcmp(reg, "rdx")) {
-		printf("rdx: 0x%08lx -> 0x%08lx\n", regs.rdx, value);
+		printf_filter("rdx: 0x%08lx -> 0x%08lx\n", regs.rdx, value);
 		regs.rdx = value;
 	}
 	if (reg == NULL || !strcmp(reg, "rsp")) {
-		printf("rsp: 0x%08lx -> 0x%08lx\n", regs.rsp, value);
+		printf_filter("rsp: 0x%08lx -> 0x%08lx\n", regs.rsp, value);
 		regs.rsp = value;
 	}
 	if (reg == NULL || !strcmp(reg, "rbp")) {
-		printf("rbp: 0x%08lx -> 0x%08lx\n", regs.rbp, value);
+		printf_filter("rbp: 0x%08lx -> 0x%08lx\n", regs.rbp, value);
 		regs.rbp = value;
 	}
 	if (reg == NULL || !strcmp(reg, "rsi")) {
-		printf("rsi: 0x%08lx -> 0x%08lx\n", regs.rsi, value);
+		printf_filter("rsi: 0x%08lx -> 0x%08lx\n", regs.rsi, value);
 		regs.rsi = value;
 	}
 	if (reg == NULL || !strcmp(reg, "rdi")) {
-		printf("rdi: 0x%08lx -> 0x%08lx\n", regs.rdi, value);
+		printf_filter("rdi: 0x%08lx -> 0x%08lx\n", regs.rdi, value);
 		regs.rdi = value;
 	}
 	if (reg == NULL || !strcmp(reg, "r8")) {
-		printf("r8: 0x%08lx -> 0x%08lx\n", regs.r8, value);
+		printf_filter("r8: 0x%08lx -> 0x%08lx\n", regs.r8, value);
 		regs.r8 = value;
 	}
 	if (reg == NULL || !strcmp(reg, "r9")) {
-		printf("r9: 0x%08lx -> 0x%08lx\n", regs.r9, value);
+		printf_filter("r9: 0x%08lx -> 0x%08lx\n", regs.r9, value);
 		regs.r9 = value;
 	}
 	if (reg == NULL || !strcmp(reg, "r10")) {
-		printf("r10: 0x%08lx -> 0x%08lx\n", regs.r10, value);
+		printf_filter("r10: 0x%08lx -> 0x%08lx\n", regs.r10, value);
 		regs.r10 = value;
 	}
 	if (reg == NULL || !strcmp(reg, "r11")) {
-		printf("r11: 0x%08lx -> 0x%08lx\n", regs.r11, value);
+		printf_filter("r11: 0x%08lx -> 0x%08lx\n", regs.r11, value);
 		regs.r11 = value;
 	}
 	if (reg == NULL || !strcmp(reg, "r12")) {
-		printf("r12: 0x%08lx -> 0x%08lx\n", regs.r12, value);
+		printf_filter("r12: 0x%08lx -> 0x%08lx\n", regs.r12, value);
 		regs.r12 = value;
 	}
 	if (reg == NULL || !strcmp(reg, "r13")) {
-		printf("r13: 0x%08lx -> 0x%08lx\n", regs.r13, value);
+		printf_filter("r13: 0x%08lx -> 0x%08lx\n", regs.r13, value);
 		regs.r13 = value;
 	}
 	if (reg == NULL || !strcmp(reg, "r14")) {
-		printf("r14: 0x%08lx -> 0x%08lx\n", regs.r14, value);
+		printf_filter("r14: 0x%08lx -> 0x%08lx\n", regs.r14, value);
 		regs.r14 = value;
 	}
 	if (reg == NULL || !strcmp(reg, "r15")) {
-		printf("r15: 0x%08lx -> 0x%08lx\n", regs.r15, value);
+		printf_filter("r15: 0x%08lx -> 0x%08lx\n", regs.r15, value);
 		regs.r15 = value;
 	}
 	set_regs(pid, regs);
@@ -321,11 +323,11 @@ void add_breakpoint(pid_t m_pid, uint64_t addr, uint8_t rtimes){
 
 void show_breakpoints(){
 	int i = 0;
-	printf("%-4s %-14s %-6s %-5s\n", "idx", "address", "rstate", "times");
+	printf_filter("%-4s %-14s %-6s %-5s\n", "idx", "address", "rstate", "times");
 	while(vect_chk_bounds(vect_breakpoints, i)){
 		struct breakpoint_t bp = vect_at_breakpoint(vect_breakpoints, i);
 		char *repeat = bp.is_repeat ? "R" : "A";
-		printf("%-4d 0x%012lx %-6s %-5d\n", i, bp.addr, repeat, bp.rtimes);
+		printf_filter("%-4d 0x%012lx %-6s %-5d\n", i, bp.addr, repeat, bp.rtimes);
 		i++;
 	}
 }
@@ -333,7 +335,7 @@ void show_breakpoints(){
 int virtual_memory(pid_t m_pid, int print){
 	procmaps_struct* maps = pmparser_parse(m_pid);
 	if (maps == NULL){
-		printf("maps: cannot parse\n");
+		printf_filter("maps: cannot parse\n");
 		return 0;
 	}
 	if (print){
@@ -341,7 +343,7 @@ int virtual_memory(pid_t m_pid, int print){
 
 		while ((maps_tmp = pmparser_next()) != NULL){
 			pmparser_print(maps_tmp,0);
-			printf("------\n");
+			printf_filter("------\n");
 		}
 	}
 
@@ -352,34 +354,40 @@ int virtual_memory(pid_t m_pid, int print){
 
 void print_hex_quad(pid_t m_pid, uint64_t addr, int len){
 	for (int i=0; i < len; i++){
-		printf("0x%012lx\t\t", addr+(sizeof(uint64_t)*i*2));
+		char buf[255];
+		size_t nbuf = 0;
+
+		nbuf += sprintf(buf+nbuf, "0x%012lx\t\t", addr+(sizeof(uint64_t)*i*2));
 		for (int j=0; j < 2; j++){
 			uint64_t mem = read_memory(m_pid, addr+ (sizeof(uint64_t)*i*2) + 8*j);
-			printf("0x%016lx\t", mem);
+			nbuf += sprintf(buf+nbuf, "0x%016lx\t", mem);
 		}
-		printf("\n");
+		printf_filter("%s\n", buf);
 	}
 	return;
 }
 
 void print_hexdump(pid_t m_pid, uint64_t addr, int len){
-	printf("%-14s\t\t%s\n", "- offset -", " 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  0123456789ABCDEF");
+	printf_filter("%-14s\t\t%s\n", "- offset -", " 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  0123456789ABCDEF");
 	for (int i=0; i < len; i++){
+		char buf[255];
+		size_t nbuf = 0;
 		uint8_t hexdump[17];
 		hexdump[16] = '\0';
-		printf("0x%012lx\t\t", addr+(sizeof(uint64_t)*i*2));
+		nbuf += sprintf(buf+nbuf, "0x%012lx\t\t", addr+(sizeof(uint64_t)*i*2));
 		for (int k=0; k < 2; k++){
 			uint64_t mem = read_memory(m_pid, addr+ ( 8*(i*2) + 8*k));
 			for (int j=0; j < 8; j++) {
 				uint8_t c = (mem >> 8*j) & 0xff;
-				printf("%02x ", c);
+				nbuf += sprintf(buf+nbuf, "%02x ", c);
 				if (c > 32 && c < 127)
 					hexdump[k*8+j] = c;
 				else
 					hexdump[k*8+j] = '.';
 			}
 		}
-		printf(" %s\n", hexdump);
+		nbuf += sprintf(buf+nbuf, " %s\n", hexdump);
+		printf_filter(buf);
 	}
 }
 
@@ -445,7 +453,7 @@ void show_flags(){
 	int i = 0;
 	while (vect_chk_bounds(vect_flags, i)) {
 		struct flag_t flag = vect_at_flag(vect_flags, i);
-		printf("0x%08lx\t%-30s\n", flag.addr, flag.name);
+		printf_filter("0x%08lx\t%-30s\n", flag.addr, flag.name);
 		i++;
 	}
 }
@@ -465,19 +473,31 @@ uint64_t str2ui64(char *str){
 }
 
 uint64_t get_temporary_seek(char *tmp_seek) {
-	uint64_t addr = 0;
-	if (tmp_seek == NULL)
-		return 0;
-	if (tmp_seek[0] == '@'){
+	uint64_t addr = regs.rip;
+	if (tmp_seek != NULL && tmp_seek[0] == '@'){
 		tmp_seek++;
 		addr = str2ui64(tmp_seek);
 	}
 	return addr;
 }
 
+void printf_filter(char *fmt, ...){
+	int res;
+	va_list args;
+	char buf[255];
+
+	va_start(args, fmt);
+	res = vsprintf(buf, fmt, args);
+	va_end(args);
+
+	if (filter == NULL || strstr(buf, filter)) {
+		printf("%s", buf);
+	}
+}
+
 void init(){
 	uint64_t entrypoint = get_entrypoint();
-	printf("base address is at 0x%012lx\n", baseaddr);
+	printf_filter("base address is at 0x%012lx\n", baseaddr);
 
 	// read symbols
 	struct symbol_t *syms = (struct symbol_t *) malloc(sizeof(struct symbol_t) * 1);
@@ -536,10 +556,34 @@ int parent_main(pid_t pid) {
 			}
 		}while(tmp[j++] != '\n');
 
+		// check for seek and filter
+		uint64_t seek;
+		filter = NULL;
+		uint8_t nseek = -1;
+		uint8_t nfilter = -1;
+		for (int i=0; i<vector_total(&input); i++){
+			char *tmp = (char*)vector_get(&input, i);
+			if (tmp[0] == '@'){
+				seek = get_temporary_seek(tmp);
+				nseek = i;
+			}
+			if (tmp[0] == '~'){
+				filter = strdup(++tmp);
+				nfilter = i;
+			}
+		}
+		if (nseek > nfilter) {
+			vector_delete(&input, nseek);
+			vector_delete(&input, nfilter);
+		} else {
+			vector_delete(&input, nfilter);
+			vector_delete(&input, nseek);
+		}
+
 		char *command = "";
 		if (vector_total(&input) > 0)
 			command = (char*)vector_get(&input, 0);
-		
+
 		// check for help
 		int is_helper = 0;
 		if (strlen(command) > 0 && command[strlen(command)-1] == '?'){
@@ -547,34 +591,36 @@ int parent_main(pid_t pid) {
 			if (strlen(command) > 1){
 				command[strlen(command)-1] = '\0';
 			} else {
-				printf("%-20s %s\n", "?", "help");
-				printf("%-20s %s\n", "i", "info");
-				printf("%-20s %s\n", "f", "flags");
-				printf("%-20s %s\n", "p", "print");
-				printf("%-20s %s\n", "d", "debug");
-				printf("%-20s %s\n", "q", "quit");
+				printf_filter("%-20s %s\n", "?", "help");
+				printf_filter("%-20s %s\n", "i", "info");
+				printf_filter("%-20s %s\n", "f", "flags");
+				printf_filter("%-20s %s\n", "p", "print");
+				printf_filter("%-20s %s\n", "d", "debug");
+				printf_filter("%-20s %s\n", "q", "quit");
 			}
 		}
+
+		// check commands
 		if (!strcmp(command, "d")){
-				printf("%-20s %s\n", "db", "breakpoints");
-				printf("%-20s %s\n", "dc", "debug continue");
-				printf("%-20s %s\n", "dm", "debug memory");
-				printf("%-20s %s\n", "dr", "show registers");
-				printf("%-20s %s\n", "ds", "debug step");
+				printf_filter("%-20s %s\n", "db", "breakpoints");
+				printf_filter("%-20s %s\n", "dc", "debug continue");
+				printf_filter("%-20s %s\n", "dm", "debug memory");
+				printf_filter("%-20s %s\n", "dr", "show registers");
+				printf_filter("%-20s %s\n", "ds", "debug step");
 		}
 		else if (!strcmp(command, "i")){
-			printf("%-20s %s\n", "is", "info symbols");
-			printf("%-20s %s\n", "iS", "info sections");
-			printf("%-20s %s\n", "iz", "info strings");
+			printf_filter("%-20s %s\n", "is", "info symbols");
+			printf_filter("%-20s %s\n", "iS", "info sections");
+			printf_filter("%-20s %s\n", "iz", "info strings");
 		}
 		else if (!strcmp(command, "p")){
-			printf("%-20s %s\n", "pd", "print dissasembly");
-			printf("%-20s %s\n", "px", "show hexdump");
+			printf_filter("%-20s %s\n", "pd", "print dissasembly");
+			printf_filter("%-20s %s\n", "px", "show hexdump");
 		}
 		else if (!strcmp(command, "pd")) {
 			if (is_helper) {
-				printf("%-20s %s\n", "pd", "print dissasembly");
-				printf("%-20s %s\n", "pd [len]", "disassemble N instructions");
+				printf_filter("%-20s %s\n", "pd", "print dissasembly");
+				printf_filter("%-20s %s\n", "pd [len]", "disassemble N instructions");
 			}
 			else {
 				// len: number bytes to disassembly
@@ -584,29 +630,20 @@ int parent_main(pid_t pid) {
 					len = atoi(len_param);
 				}
 				if (len <= 0) len = 1;
-
-				// @seek
-				uint64_t addr = 0;
-				if (vector_total(&input) > 2) {
-					char *last_param = (char *) vector_get(&input, 2);
-					addr = get_temporary_seek(last_param);
-				}
-				if (addr == 0) addr = regs.rip;
-
-				dump_code(pid, addr, len);
+				dump_code(pid, seek, len);
 			}
 		}
 		else if (strcmp(command, "ds") == 0){
 			if (is_helper)
-				printf("%-20s %s\n", "ds", "debug step");
+				printf_filter("%-20s %s\n", "ds", "debug step");
 			else
 				single_step(pid);
 		}
 		else if (strcmp(command, "dr") == 0){
 			if (is_helper){
-				printf("%-20s %s\n", "dr", "show registers");
-				printf("%-20s %s\n", "dr [reg]", "show value of given register");
-				printf("%-20s %s\n", "dr [reg] [value]", "set value of given register");
+				printf_filter("%-20s %s\n", "dr", "show registers");
+				printf_filter("%-20s %s\n", "dr [reg]", "show value of given register");
+				printf_filter("%-20s %s\n", "dr [reg] [value]", "set value of given register");
 			}
 			else {
 				char *reg = NULL;
@@ -625,17 +662,17 @@ int parent_main(pid_t pid) {
 		}
 		else if (!strcmp(command, "dc")){
 			if (is_helper) {
-				printf("%-20s %s\n", "dc", "debug continue");
-				printf("%-20s %s\n", "dcc", "debug continue until call");
-				printf("%-20s %s\n", "dcr", "debug continue until ret");
-				printf("%-20s %s\n", "dcu [addr]", "debug continue until");
+				printf_filter("%-20s %s\n", "dc", "debug continue");
+				printf_filter("%-20s %s\n", "dcc", "debug continue until call");
+				printf_filter("%-20s %s\n", "dcr", "debug continue until ret");
+				printf_filter("%-20s %s\n", "dcu [addr]", "debug continue until");
 			}
 			else
 				continue_execution(pid);
 		}
 		else if (!strcmp(command, "dcc")){
 			if (is_helper)
-				printf("%-20s %s\n", "dcc", "debug continue call");
+				printf_filter("%-20s %s\n", "dcc", "debug continue call");
 			else {
 				uint64_t old_rip;
 				do {
@@ -649,7 +686,7 @@ int parent_main(pid_t pid) {
 		}
 		else if (!strcmp(command, "dcr")){
 			if (is_helper)
-				printf("%-20s %s\n", "dcr", "debug continue return");
+				printf_filter("%-20s %s\n", "dcr", "debug continue return");
 			else {
 				uint64_t old_rip;
 				do {
@@ -663,7 +700,7 @@ int parent_main(pid_t pid) {
 		}
 		else if (!strcmp(command, "dcu")){
 			if (is_helper)
-				printf("%-20s %s\n", "dcu", "debug continue until");
+				printf_filter("%-20s %s\n", "dcu", "debug continue until");
 			else {
 				uint64_t addr_until = 0;
 				if (vector_total(&input) > 1) {
@@ -678,8 +715,8 @@ int parent_main(pid_t pid) {
 		}
 		else if (!strcmp(command, "db")){
 			if (is_helper){
-				printf("%-20s %s\n", "db", "show breakpoints");
-				printf("%-20s %s\n", "db [addr]", "add breakpoints");
+				printf_filter("%-20s %s\n", "db", "show breakpoints");
+				printf_filter("%-20s %s\n", "db [addr]", "add breakpoints");
 			}
 			else {
 				uint64_t addr = 0;
@@ -697,18 +734,18 @@ int parent_main(pid_t pid) {
 		}
 		else if (!strcmp(command, "is")){
 			if (is_helper)
-				printf("%-20s %s\n", "is", "info symbols");
+				printf_filter("%-20s %s\n", "is", "info symbols");
 			else {
 				struct symbol_t *syms = (struct symbol_t *) malloc(sizeof(struct symbol_t) * 1);
 				get_symbols(&sections, &syms);
 				free(symbols);
 				symbols = syms;
 
-				printf("[Symbols]\n");
-				printf("%-4s\t%-10s\t%-6s\t%-6s\t%-4s\t%s\n", "nth", "paddr", "bind", "type", "size", "name");
+				printf_filter("[Symbols]\n");
+				printf_filter("%-4s\t%-10s\t%-6s\t%-6s\t%-4s\t%s\n", "nth", "paddr", "bind", "type", "size", "name");
 				int i = 0;
 				while (symbols[i].symbol_num == i){
-					printf("%-4d\t0x%08lx\t%-6s\t%-6s\t%-4x\t%s\n", symbols[i].symbol_num, symbols[i].symbol_value, "type", "bind", symbols[i].symbol_size, symbols[i].symbol_name);
+					printf_filter("%-4d\t0x%08lx\t%-6s\t%-6s\t%-4x\t%s\n", symbols[i].symbol_num, symbols[i].symbol_value, "type", "bind", symbols[i].symbol_size, symbols[i].symbol_name);
 					i++;
 				}
 
@@ -716,90 +753,73 @@ int parent_main(pid_t pid) {
 		}
 		else if (!strcmp(command, "iS")){
 			if (is_helper)
-				printf("%-20s %s\n", "iS", "info Sections");
+				printf_filter("%-20s %s\n", "iS", "info Sections");
 			else {
 				struct section_t *secs = (struct section_t *) malloc(sizeof(struct section_t) * 1);
 				get_sections(&secs);
 				free(sections);
 				sections = secs;
 
-				printf("[Sections]\n");
-				printf("%-4s\t%-10s\t%-6s\t%-4s\t%s\n", "nth", "paddr", "size", "perm", "name");
+				printf_filter("[Sections]\n");
+				printf_filter("%-4s\t%-10s\t%-6s\t%-4s\t%s\n", "nth", "paddr", "size", "perm", "name");
 				int i = 0;
 				while(sections[i].section_index == i) {
-					printf("%-4d\t0x%08lx\t0x%-4x\t%-4s\t%s\n", i, sections[i].section_addr, sections[i].section_size, sections[i].section_flags, sections[i].section_name);
+					printf_filter("%-4d\t0x%08lx\t0x%-4x\t%-4s\t%s\n", i, sections[i].section_addr, sections[i].section_size, sections[i].section_flags, sections[i].section_name);
 					i++;
 				}
 			}
 		}
 		else if (!strcmp(command, "iz")){
 			if (is_helper){
-				printf("%-20s %s\n", "iz", "info strings");
-				printf("%-20s %s\n", "iz [filter]", "info strings and filter");
+				printf_filter("%-20s %s\n", "iz", "info strings");
 			}
 			else {
 				char *filter = NULL;
 				if (vector_total(&input) > 1){
 					filter = (char *) vector_get(&input, 1);
 				}
-				printf("[Strings]\n");
+				printf_filter("[Strings]\n");
 				get_strings(filter);
 			}
 		}
-		else if (strcmp(command, "px") == 0){
+		else if (!strcmp(command, "px")){
 			if (is_helper) {
-				printf("%-20s %s\n", "px", "show hexdump");
-				printf("%-20s %s\n", "px [len]", "show hexdump");
-				printf("%-20s %s\n", "pxq", "show hex quadwords");
+				printf_filter("%-20s %s\n", "px", "show hexdump");
+				printf_filter("%-20s %s\n", "px [len]", "show hexdump");
+				printf_filter("%-20s %s\n", "pxq", "show hex quadwords");
 			}
 			else {
 				int len = 0x10;
-				uint64_t addr = regs.rip;
 				if (vector_total(&input) > 1){
 					char *param1 = (char *) vector_get(&input, 1);
 					len = str2ui64(param1);
 				}
-				if (vector_total(&input) > 2){
-					char *param2 = (char *) vector_get(&input, 2);
-					addr = get_temporary_seek(param2);
-				}
-				print_hexdump(pid, addr, len);
+				print_hexdump(pid, seek, len);
 			}
 		}
-		else if (strcmp(command, "pxq") == 0){
+		else if (!strcmp(command, "pxq")){
 			if (is_helper) {
-				printf("%-20s %s\n", "pxq", "show hex quadwords");
-				printf("%-20s %s\n", "pxq [len]", "show hex quadwords");
+				printf_filter("%-20s %s\n", "pxq", "show hex quadwords");
+				printf_filter("%-20s %s\n", "pxq [len]", "show hex quadwords");
 			}
 			else {
 				int len = 0x10;
-				uint64_t addr = regs.rip;
 				if (vector_total(&input) > 1){
 					char *param1 = (char *) vector_get(&input, 1);
 					len = str2ui64(param1);
 				}
-				if (vector_total(&input) > 2){
-					char *param2 = (char *) vector_get(&input, 2);
-					addr = get_temporary_seek(param2);
-				}
-				print_hex_quad(pid, addr, len);
+				print_hex_quad(pid, seek, len);
 			}
 		}
 		else if (!strcmp(command, "f")){
 			if (is_helper) {
-				printf("%-20s %s\n", "f", "show flags");
-				printf("%-20s %s\n", "f [name]", "add flag");
+				printf_filter("%-20s %s\n", "f", "show flags");
+				printf_filter("%-20s %s\n", "f [name]", "add flag");
 			}
 			else {
 				if (vector_total(&input) > 1) {
-					uint64_t addr = regs.rip;
 					char *name = (char *) vector_get(&input, 1);					
-				
-					if (vector_total(&input) > 2){
-						char *last_param = (char *) vector_get(&input, 2);
-						addr = get_temporary_seek(last_param);
-					}
-					add_flag(name, addr);
+					add_flag(name, seek);
 				} else {
 					show_flags();
 				}
@@ -807,13 +827,13 @@ int parent_main(pid_t pid) {
 		}
 		else if (strcmp(command, "dm") == 0){
 			if (is_helper)
-				printf("%-20s %s\n", "dm", "list memory maps of target process");
+				printf_filter("%-20s %s\n", "dm", "list memory maps of target process");
 			else
 				virtual_memory(pid, 1);
 		}
 		else if (strcmp(command, "q") == 0){
 			if (is_helper)
-				printf("%-20s %s\n", "q", "quit");
+				printf_filter("%-20s %s\n", "q", "quit");
 			else {
 				kill(pid, SIGKILL);
 				wait_for_signal(pid);
@@ -825,7 +845,7 @@ int parent_main(pid_t pid) {
 		}
 		else {
 			if (!is_helper)
-				printf("command not found\n");
+				printf_filter("command not found\n");
 		}
 
 		vector_free(&input);

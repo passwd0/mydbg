@@ -35,7 +35,7 @@ struct breakpoint_t {
 	uint8_t data;
 	int is_enabled;         // bp is enabled (not manually changable)
     uint8_t rtimes;         // repeat n times
-    uint8_t is_repeat;        // 0: ignore rtimes,    1: --rtimes <= 0 ? is_enabled = 0
+    uint8_t is_repeat;      // 0: ignore rtimes,    1: --rtimes <= 0 ? is_enabled = 0
 };
 
 struct flag_t {
@@ -52,6 +52,8 @@ struct user_regs_struct regs;
 
 const char *filename;
 uint64_t baseaddr;
+
+char *filter;
 
 VECT_GENERATE_NAME(struct flag_t, flag)
 vect_flag *vect_flags;
@@ -92,6 +94,7 @@ void show_flags();
 
 uint64_t str2ui64(char *str);
 uint64_t get_temporary_seek(char *tmp_seek);
+void printf_filter(char *fmt, ...);
 
 void init();
 int parent_main(pid_t);
