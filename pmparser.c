@@ -193,14 +193,16 @@ void pmparser_print(procmaps_struct* map, int order){
 	while(tmp!=NULL){
 		//(unsigned long) tmp->addr_start;
 		if(order==id || order==-1){
-			printf("Backed by:\t%s\n",strlen(tmp->pathname)==0?"[anonym*]":tmp->pathname);
-			printf("Range:\t\t%p-%p\n",tmp->addr_start,tmp->addr_end);
-			printf("Length:\t\t%ld\n",tmp->length);
-			printf("Offset:\t\t%ld\n",tmp->offset);
-			printf("Permissions:\t%s\n",tmp->perm);
-			printf("Inode:\t\t%d\n",tmp->inode);
-			printf("Device:\t\t%s\n",tmp->dev);
+			printf_filter("0x%-18lx 0x%-10lx 0x%-10lx %-10s %-10d %-10s %s\n", 
+				(tmp->addr_start),
+				tmp->length,
+				tmp->offset,
+				tmp->perm,
+				tmp->inode,
+				tmp->dev,
+				strlen(tmp->pathname) == 0 ? "[anonym*]" : tmp->pathname);
 		}
+
 		if(order!=-1 && id>order)
 			tmp=NULL;
 		else if(order==-1){

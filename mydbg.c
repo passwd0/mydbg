@@ -341,9 +341,9 @@ int virtual_memory(pid_t m_pid, int print){
 	if (print){
 		procmaps_struct* maps_tmp = NULL;
 
+		printf_filter("%-20s %-12s %-12s %-10s %-10s %-10s %-30s\n", "start", "size", "offset", "perm", "inode", "device", "lib");
 		while ((maps_tmp = pmparser_next()) != NULL){
 			pmparser_print(maps_tmp,0);
-			printf_filter("------\n");
 		}
 	}
 
@@ -361,6 +361,21 @@ void print_hex_quad(pid_t m_pid, uint64_t addr, int len){
 		for (int j=0; j < 2; j++){
 			uint64_t mem = read_memory(m_pid, addr+ (sizeof(uint64_t)*i*2) + 8*j);
 			nbuf += sprintf(buf+nbuf, "0x%016lx\t", mem);
+		}
+		printf_filter("%s\n", buf);
+	}
+	return;
+}
+
+void print_hex_double(pid_t m_pid, uint64_t addr, int len){
+	for (int i=0; i < len; i++){
+		char buf[255];
+		size_t nbuf = 0;
+
+		nbuf += sprintf(buf+nbuf, "0x%012lx\t\t", addr+(sizeof(uint64_t)*i*2));
+		for (int j=0; j < 2; j++){
+			uint64_t mem = read_memory(m_pid, addr+ (sizeof(uint64_t)*i*2) + 8*j);
+			nbuf += sprintf(buf+nbuf, "0x%08lx  0x%08lx  ", mem & 0xffffffff, mem >> 32);
 		}
 		printf_filter("%s\n", buf);
 	}
@@ -797,6 +812,20 @@ int parent_main(pid_t pid) {
 					len = str2ui64(param1);
 				}
 				print_hexdump(pid, seek, len);
+			}
+		}
+		else if (!strcmp(command, "pxw")){
+			if (is_helper) {
+				printf_filter("%-20s %s\n", "pxw", "show hexdump");
+				printf_filter("%-20s %s\n", "pxw [len]", "show hexdump");
+			}
+			else {
+				int len = 0x10;
+				if (vector_total(&input) > 1){
+					char *param1 = (char *) vector_get(&input, 1);
+					len = str2ui64(param1);
+				}
+				print_hex_double(pid, seek, len);
 			}
 		}
 		else if (!strcmp(command, "pxq")){

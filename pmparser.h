@@ -28,7 +28,7 @@ implied warranty.
  * @desc hold all the information about an area in the process's  VM
  */
 typedef struct procmaps_struct{
-	void* addr_start; 	//< start address of the area
+	uint64_t addr_start; 	//< start address of the area
 	void* addr_end; 	//< end address
 	unsigned long length; //< size of the range
 
