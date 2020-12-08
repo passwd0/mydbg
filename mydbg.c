@@ -592,6 +592,8 @@ int parent_main(pid_t pid) {
 				command[strlen(command)-1] = '\0';
 			} else {
 				printf_filter("%-20s %s\n", "?", "help");
+				printf_filter("%-20s %s\n", "@", "temporary seek");
+				printf_filter("%-20s %s\n", "~", "grep");
 				printf_filter("%-20s %s\n", "i", "info");
 				printf_filter("%-20s %s\n", "f", "flags");
 				printf_filter("%-20s %s\n", "p", "print");
@@ -779,7 +781,7 @@ int parent_main(pid_t pid) {
 					filter = (char *) vector_get(&input, 1);
 				}
 				printf_filter("[Strings]\n");
-				get_strings(filter);
+				get_strings();
 			}
 		}
 		else if (!strcmp(command, "px")){

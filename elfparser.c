@@ -35,7 +35,7 @@ void parse_elf(char *filename){
 	}
 }
 
-void get_strings(char *filter){
+void get_strings(){
 	int i = 0;
 	char buf[250];
 	int c = 0;
@@ -50,9 +50,7 @@ void get_strings(char *filter){
 			c = 0;
 		}
 		if (old_size > 4){
-			if (filter == NULL || strstr(buf, filter)) {
-				printf("%s\n", buf);
-			}
+			printf_filter("%s\n", buf);
 			old_size = 0;
 		}
 	}
