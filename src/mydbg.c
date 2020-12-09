@@ -79,7 +79,7 @@ struct Instruction *dump_code(pid_t m_pid, uint64_t addr, int8_t ninstr){
 				if (f.addr != 0)
 					nline += sprintf(line+nline, "; %s\n", f.name);
 				
-				nline += sprintf(line+nline, "0x%016lx\t\t", insn[j].address + offset);
+				nline += sprintf(line+nline, "0x%012lx\t\t", insn[j].address);
 				size_t sum_byte = curr_byte + insn[j].size;
 				for (; curr_byte < sum_byte; curr_byte++)
 					nline += sprintf(line+nline, "%02x ", code[curr_byte]);
@@ -262,7 +262,6 @@ void set_breakpoint_in_code(pid_t m_pid){
 		}
 		i++;
 	}
-	
 }
 
 void single_step(pid_t m_pid){	
@@ -648,7 +647,6 @@ int parent_main(pid_t pid) {
 				}
 				if (len <= 0) len = 1;
 
-				printf("addr: %lx\n", seek);
 				dump_code(pid, seek, len);
 			}
 		}
