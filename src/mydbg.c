@@ -300,23 +300,27 @@ void add_breakpoint(pid_t m_pid, uint64_t addr, uint8_t rtimes){
 
 	int i = 0;
 	while(vect_chk_bounds(vect_breakpoints, i)){
-		struct breakpoint_t breakpoint = vect_at_breakpoint(vect_breakpoints, i);
+		struct breakpoint_t bp = vect_at_breakpoint(vect_breakpoints, i);
 
-		if (breakpoint.addr == addr){
+		if (bp.addr == addr){
 			already_present = 1;
+			if (bp.is_repeat == RREPEAT){
+				bp.rtimes = rtimes;
+				vect_set_breakpoint(vect_breakpoints, i, bp);
+			}
 		}
 		i++;
 	}
 		
 	if (!already_present){
-		struct breakpoint_t breakpoint = {
+		struct breakpoint_t bp = {
 			.addr = addr,
 			.data = read_memory(m_pid, addr) & 0xff,
 			.is_enabled = 0,
 			.rtimes = rtimes,
 			.is_repeat = rtimes > 0
 		};
-		vect_push_breakpoint(vect_breakpoints, breakpoint);
+		vect_push_breakpoint(vect_breakpoints, bp);
 	}
 }
 
