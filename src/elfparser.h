@@ -36,7 +36,7 @@ struct section_t {
     uint32_t section_link;
 };
 
-void parse_elf(char *filename);
+void parse_elf(const char *filename);
 uint8_t *get_memory(uint64_t addr, uint64_t size);
 uint64_t get_entrypoint();
 void get_programs();

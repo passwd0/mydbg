@@ -3,7 +3,7 @@
 uint8_t *mem;
 uint64_t mem_size;
 
-void parse_elf(char *filename){
+void parse_elf(const char *filename){
 	int fd, i;
 	struct stat st;
 

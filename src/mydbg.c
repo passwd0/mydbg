@@ -500,12 +500,11 @@ uint64_t get_temporary_seek(char *tmp_seek) {
 }
 
 void printf_filter(char *fmt, ...){
-	int res;
 	va_list args;
 	char buf[255];
 
 	va_start(args, fmt);
-	res = vsprintf(buf, fmt, args);
+	vsprintf(buf, fmt, args);
 	va_end(args);
 
 	if (filter == NULL || strstr(buf, filter)) {
@@ -795,7 +794,6 @@ int parent_main(pid_t pid) {
 				printf_filter("%-20s %s\n", "iz", "info strings");
 			}
 			else {
-				char *filter = NULL;
 				if (vector_total(&input) > 1){
 					filter = (char *) vector_get(&input, 1);
 				}
