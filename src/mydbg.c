@@ -536,7 +536,7 @@ void init(){
 	vect_breakpoints = vect_init_breakpoint(8);
 }
 
-int parent_main(pid_t pid) {
+int parent_main(pid_t pid, const char *script_filename) {
 	int wait_status;
 
 	waitpid(pid, &wait_status, 0);
@@ -544,21 +544,42 @@ int parent_main(pid_t pid) {
 
 	virtual_memory(pid, 0);
 	init();
-	
+
 	// commands
 	printf("\ndbg:0x%12lx> ", regs.rip);
 	fflush(stdout);
 
+	FILE *source_input = stdin;
+	size_t source_input_size = 0;
+	if (script_filename != NULL){
+		source_input = fopen(script_filename, "r");
+		fseek (source_input, 0, SEEK_END);
+		source_input_size = ftell(source_input);
+		rewind(source_input);
+	}
+
 	vector input;
 	while(1){
 		vector_init(&input);
+
+		// riempio tmp con source_input
 		char tmp[255];
 		int i = 0;
-		while((tmp[i++] = getchar()) != '\n');
+		while((tmp[i++] = getc(source_input)) != '\n');
+		tmp[i] = '\0';
+
+		// se sto analizzando lo script printa tmp
+		if (source_input != stdin){ 
+			printf("%s", tmp);
+			// se sto analizzando lo script e l'ultimo carattere non e' \n, allora cambia source_input
+			if(ftell(source_input) == source_input_size)
+				source_input = stdin;
+		}
+
 		char stmp[255];
 		i = 0;
 		int j = 0;
-		do{
+		do {
 			if (tmp[j] != ' ' && tmp[j] != '\n'){
 				stmp[i++] = tmp[j];
 			}
@@ -571,7 +592,8 @@ int parent_main(pid_t pid) {
 					i = 0;
 				}
 			}
-		}while(tmp[j++] != '\n');
+		} while(tmp[j++] != '\n');
+		
 
 		// check for seek and filter
 		uint64_t seek = regs.rip;
@@ -902,25 +924,52 @@ int child_main(const char *filename, char *argv[]) {
 	return 0;
 }
 
+void usage(const char *program_name){
+	printf("Usage: \n\t%s [-i script] execfile [options]\n", program_name);
+	exit(0);
+	return 0;
+}
+
 int main(int argc, char *argv[]) {
 	pid_t pid;
 	int result;
 
 	if (argc < 2) {
-		printf("usage: \n%s execfile [options]\n", argv[0]);
-		return 0;
+		usage(argv[0]);
 	}
 
-	filename = argv[1];
+	char *script_filename = NULL;
+    int opt;
+	while ((opt = getopt(argc, argv, "i:h:")) != -1) {
+		switch(opt) {
+		case 'i':
+			script_filename = optarg;
+			if (!cfileexists(script_filename)){
+				perror(script_filename);
+				usage(argv[0]);
+			}
+			break;
+		case 'h':
+			usage(argv[0]);
+			break;
+		default:
+			usage(argv[0]);
+			break;
+		}
+	}
 
+	if (optind >= argc)
+		usage(argv[0]);
+
+	filename = argv[optind];
 	parse_elf(filename);
 
 	pid = fork();
 	if (pid) {
 		fprintf(stderr, "%5d: child started\n", pid);
-		result = parent_main(pid);
+		result = parent_main(pid, script_filename);
 	} else {
-		result = child_main(filename, &argv[1]);
+		result = child_main(filename, NULL);
 	}
 
 	return result;

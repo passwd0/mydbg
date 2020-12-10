@@ -97,7 +97,8 @@ uint64_t get_temporary_seek(char *tmp_seek);
 void printf_filter(char *fmt, ...);
 
 void init();
-int parent_main(pid_t);
+void usage(const char *program_name);
+int parent_main(pid_t pid, const char *script_filename);
 int child_main(const char *filename, char *argv[]);
 
 const char *name[] = {
