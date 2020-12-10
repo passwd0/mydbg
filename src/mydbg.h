@@ -17,7 +17,7 @@
 #include <signal.h>
 #include <string.h>
 #include <stdint.h>
-
+#include <ncurses.h>
 #include <inttypes.h>
 
 #include <capstone/capstone.h>
@@ -53,7 +53,7 @@ struct user_regs_struct regs;
 const char *filename;
 uint64_t baseaddr;
 
-char *filter;
+char *strfilter;
 
 VECT_GENERATE_NAME(struct flag_t, flag)
 vect_flag *vect_flags;

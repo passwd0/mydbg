@@ -507,12 +507,20 @@ void printf_filter(char *fmt, ...){
 	vsprintf(buf, fmt, args);
 	va_end(args);
 
-	if (filter == NULL || strstr(buf, filter)) {
-		printf("%s", buf);
+	if (strfilter == NULL || strstr(buf, strfilter)) {
+		printw("%s", buf);
 	}
 }
 
 void init(){
+	initscr();
+	clear();
+	noecho();
+	cbreak();	/* Line buffering disabled. pass on everything */
+	keypad(stdscr, TRUE);
+	scrollok(stdscr, TRUE);
+	// refresh();
+
 	uint64_t entrypoint = get_entrypoint();
 	printf_filter("base address is at 0x%012lx\n", baseaddr);
 
@@ -546,8 +554,9 @@ int parent_main(pid_t pid, const char *script_filename) {
 	init();
 
 	// commands
-	printf("\ndbg:0x%12lx> ", regs.rip);
-	fflush(stdout);
+	char buf[22];
+	snprintf(buf, 22, "\ndbg:0x%12lx> ", regs.rip);
+	addstr(buf);
 
 	FILE *source_input = stdin;
 	size_t source_input_size = 0;
@@ -558,26 +567,98 @@ int parent_main(pid_t pid, const char *script_filename) {
 		rewind(source_input);
 	}
 
+	VECT_GENERATE_NAME(char *, history);
+	vect_history *history = vect_init_history(8);
+
 	vector input;
 	while(1){
 		vector_init(&input);
 
+		int nhistory = 0;
+		while(vect_chk_bounds(history, nhistory)) nhistory++;
+		vect_push_history(history, "");
+
 		// riempio tmp con source_input
 		char tmp[255];
-		int i = 0;
-		while((tmp[i++] = getc(source_input)) != '\n');
-		tmp[i] = '\0';
+		int lencmd = 0;
+		if (source_input == stdin){
+			int startpos = 20;
+			while (true) {
+				int ch = getch();
+				int xpos;
+				int ypos;
+				getsyx(xpos, ypos);
+				if (ch > 0 && ch < 127){
+					insch(ch);
+					printw("%c", ch);
+					for(int i=lencmd; i>ypos-startpos; i--){
+						tmp[i+1] = tmp[i];
+					}
+					tmp[ypos-startpos] = ch;
+					lencmd++;
+				} else {
+					if (ch == KEY_UP){
+						if (vect_chk_bounds(history, nhistory-1)){
+							nhistory--;
+							move(xpos, startpos);
+							clrtoeol();
+							strcpy(tmp, vect_at_history(history, nhistory));
+							addstr(tmp);
+							lencmd = strlen(tmp);
+						}
+					} else if (ch == KEY_DOWN){
+						if (vect_chk_bounds(history, nhistory+1)){
+							nhistory++;
+							move(xpos, startpos);
+							clrtoeol();
+							move(xpos, startpos);
+							strcpy(tmp, vect_at_history(history, nhistory));
+							addstr(tmp);
+							lencmd = strlen(tmp);
+						}
+					} else if (ch == KEY_BACKSPACE || ch == 127 || ch == '\b'){
+						if (ypos > startpos){
+							for(int i=ypos-startpos; i<lencmd; i++){
+								tmp[i-1] = tmp[i];
+							}
+							lencmd--;
+							move(xpos, --ypos);
+							delch();
+						}
+					} else if (ch == KEY_LEFT){
+						if (ypos > startpos){
+							move(xpos, --ypos);
+						}
+					} else if (ch == KEY_RIGHT){
+						if (ypos < lencmd + startpos){
+							move(xpos, ++ypos);
+						}
+					}
+				}
+
+				if (ch == '\n'){
+					tmp[lencmd-1] = '\0';
+					break;
+				}
+			}
+		} else {
+			while((tmp[lencmd++] = getc(source_input)) != '\n');
+			tmp[lencmd-1]='\0';
+		}
+		
+		vect_pop_history(history);
+		vect_push_history(history, strdup(tmp));
 
 		// se sto analizzando lo script printa tmp
 		if (source_input != stdin){ 
-			printf("%s", tmp);
+			printw("%s", tmp);
 			// se sto analizzando lo script e l'ultimo carattere non e' \n, allora cambia source_input
 			if(ftell(source_input) == source_input_size)
 				source_input = stdin;
 		}
 
 		char stmp[255];
-		i = 0;
+		int i = 0;
 		int j = 0;
 		do {
 			if (tmp[j] != ' ' && tmp[j] != '\n'){
@@ -597,7 +678,7 @@ int parent_main(pid_t pid, const char *script_filename) {
 
 		// check for seek and filter
 		uint64_t seek = regs.rip;
-		filter = NULL;
+		strfilter = NULL;
 		uint8_t nseek = -1;
 		uint8_t nfilter = -1;
 		for (int i=0; i<vector_total(&input); i++){
@@ -607,7 +688,7 @@ int parent_main(pid_t pid, const char *script_filename) {
 				nseek = i;
 			}
 			if (tmp[0] == '~'){
-				filter = strdup(++tmp);
+				strfilter = strdup(++tmp);
 				nfilter = i;
 			}
 		}
@@ -817,7 +898,7 @@ int parent_main(pid_t pid, const char *script_filename) {
 			}
 			else {
 				if (vector_total(&input) > 1){
-					filter = (char *) vector_get(&input, 1);
+					strfilter = (char *) vector_get(&input, 1);
 				}
 				printf_filter("[Strings]\n");
 				get_strings();
@@ -904,9 +985,10 @@ int parent_main(pid_t pid, const char *script_filename) {
 		}
 
 		vector_free(&input);
-		printf("\ndbg:0x%12lx> ", regs.rip);
+		printw("\ndbg:0x%12lx> ", regs.rip);
 		fflush(stdout);
 	}
+	vect_free(history);
 	return 0;
 }
 
@@ -940,7 +1022,7 @@ int main(int argc, char *argv[]) {
 
 	char *script_filename = NULL;
     int opt;
-	while ((opt = getopt(argc, argv, "i:h:")) != -1) {
+	while ((opt = getopt(argc, argv, "i:h")) != -1) {
 		switch(opt) {
 		case 'i':
 			script_filename = optarg;
