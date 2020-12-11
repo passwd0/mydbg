@@ -573,10 +573,9 @@ int parent_main(pid_t pid, const char *script_filename) {
 	VECT_GENERATE_NAME(char *, history);
 	vect_history *history = vect_init_history(8);
 
-	vector input;
+	VECT_GENERATE_NAME(char *, command);
+	vect_command *commands = vect_init_command(8);
 	while(1){
-		vector_init(&input);
-
 		int nhistory = 0;
 		while(vect_chk_bounds(history, nhistory)) nhistory++;
 		vect_push_history(history, "");
@@ -641,6 +640,10 @@ int parent_main(pid_t pid, const char *script_filename) {
 
 				if (ch == '\n'){
 					tmp[lencmd-1] = '\0';
+					// for (int d=0; d<lencmd; d++){
+					// 	printw("[%d] [%c]\n", tmp[d], tmp[d]);
+					// 	refresh();
+					// }
 					break;
 				}
 			}
@@ -672,7 +675,7 @@ int parent_main(pid_t pid, const char *script_filename) {
 				if(strlen(stmp) > 0){
 					char *no_ref = (char*) malloc(strlen(stmp));
 					strcpy(no_ref, stmp);
-					vector_add(&input, no_ref);
+					vect_push_command(commands, no_ref);
 					i = 0;
 				}
 			}
@@ -683,8 +686,8 @@ int parent_main(pid_t pid, const char *script_filename) {
 		strfilter = NULL;
 		uint8_t nseek = -1;
 		uint8_t nfilter = -1;
-		for (int i=0; i<vector_total(&input); i++){
-			char *tmp = (char*)vector_get(&input, i);
+		while(vect_chk_bounds(commands, i)){
+			char *tmp = (char*)vect_at_command(commands, i);
 			if (tmp[0] == '@'){
 				seek = get_temporary_seek(tmp);
 				nseek = i;
@@ -693,18 +696,23 @@ int parent_main(pid_t pid, const char *script_filename) {
 				strfilter = strdup(++tmp);
 				nfilter = i;
 			}
+			i++;
 		}
 		if (nseek > nfilter) {
-			vector_delete(&input, nseek);
-			vector_delete(&input, nfilter);
-		} else {
-			vector_delete(&input, nfilter);
-			vector_delete(&input, nseek);
+			if (vect_chk_bounds(commands, nseek))
+				vect_rem_command(commands, nseek);
+			if (vect_chk_bounds(commands, nfilter))
+				vect_rem_command(commands, nfilter);
+		} else if (nseek < nfilter){
+			if (vect_chk_bounds(commands, nfilter))
+				vect_rem_command(commands, nfilter);
+			if (vect_chk_bounds(commands, nseek))
+				vect_rem_command(commands, nseek);
 		}
 
 		char *command = "";
-		if (vector_total(&input) > 0)
-			command = (char*)vector_get(&input, 0);
+		if (vect_chk_bounds(commands, 0))
+			command = (char*)vect_at_command(commands, 0);
 
 		// check for help
 		int is_helper = 0;
@@ -749,8 +757,8 @@ int parent_main(pid_t pid, const char *script_filename) {
 			else {
 				// len: number bytes to disassembly
 				uint8_t len = 0;
-				if (vector_total(&input) > 1) {
-					char *len_param = (char *) vector_get(&input, 1);
+				if (vect_chk_bounds(commands, 1)) {
+					char *len_param = (char *) vect_at_command(commands, 1);
 					len = atoi(len_param);
 				}
 				if (len <= 0) len = 1;
@@ -773,13 +781,13 @@ int parent_main(pid_t pid, const char *script_filename) {
 			else {
 				char *reg = NULL;
 				char *param2 = NULL;
-				if (vector_total(&input) > 2) {
-					reg = (char *) vector_get(&input, 1);
-					param2 = (char *) vector_get(&input, 2);
+				if (vect_chk_bounds(commands, 2)) {
+					reg = (char *) vect_at_command(commands, 1);
+					param2 = (char *) vect_at_command(commands, 2);
 					uint64_t value = str2ui64(param2);
 					set_reg(pid, reg, value);
-				} else if (vector_total(&input) > 1) {
-					reg = (char *) vector_get(&input, 1);
+				} else if (vect_chk_bounds(commands, 1)) {
+					reg = (char *) vect_at_command(commands, 1);
 					dump_regs(reg);
 				} else {
 					dump_regs(NULL);
@@ -829,8 +837,8 @@ int parent_main(pid_t pid, const char *script_filename) {
 				printf_filter("%-20s %s\n", "dcu", "debug continue until");
 			else {
 				uint64_t addr_until = 0;
-				if (vector_total(&input) > 1) {
-					char *until_param = (char *) vector_get(&input, 1);
+				if (vect_chk_bounds(commands, 1)) {
+					char *until_param = (char *) vect_at_command(commands, 1);
 					addr_until = str2ui64(until_param);
 					add_breakpoint(pid, addr_until, 1);
 				}
@@ -846,8 +854,8 @@ int parent_main(pid_t pid, const char *script_filename) {
 			}
 			else {
 				uint64_t addr = 0;
-				if (vector_total(&input) > 1){
-					char *tmp = (char *) vector_get(&input, 1);
+				if (vect_chk_bounds(commands, 1)){
+					char *tmp = (char *) vect_at_command(commands, 1);
 					addr = str2ui64(tmp);
 					if (addr != 0){
 						add_breakpoint(pid, addr, 0);
@@ -900,8 +908,8 @@ int parent_main(pid_t pid, const char *script_filename) {
 				printf_filter("%-20s %s\n", "iz", "info strings");
 			}
 			else {
-				if (vector_total(&input) > 1){
-					strfilter = (char *) vector_get(&input, 1);
+				if (vect_chk_bounds(commands, 1)){
+					strfilter = (char *) vect_at_command(commands, 1);
 				}
 				printf_filter("[Strings]\n");
 				get_strings();
@@ -915,8 +923,8 @@ int parent_main(pid_t pid, const char *script_filename) {
 			}
 			else {
 				int len = 0x10;
-				if (vector_total(&input) > 1){
-					char *param1 = (char *) vector_get(&input, 1);
+				if (vect_chk_bounds(commands, 1)){
+					char *param1 = (char *) vect_at_command(commands, 1);
 					len = str2ui64(param1);
 				}
 				print_hexdump(pid, seek, len);
@@ -929,8 +937,8 @@ int parent_main(pid_t pid, const char *script_filename) {
 			}
 			else {
 				int len = 0x10;
-				if (vector_total(&input) > 1){
-					char *param1 = (char *) vector_get(&input, 1);
+				if (vect_chk_bounds(commands, 1)){
+					char *param1 = (char *) vect_at_command(commands, 1);
 					len = str2ui64(param1);
 				}
 				print_hex_double(pid, seek, len);
@@ -943,8 +951,8 @@ int parent_main(pid_t pid, const char *script_filename) {
 			}
 			else {
 				int len = 0x10;
-				if (vector_total(&input) > 1){
-					char *param1 = (char *) vector_get(&input, 1);
+				if (vect_chk_bounds(commands, 1)){
+					char *param1 = (char *) vect_at_command(commands, 1);
 					len = str2ui64(param1);
 				}
 				print_hex_quad(pid, seek, len);
@@ -956,8 +964,8 @@ int parent_main(pid_t pid, const char *script_filename) {
 				printf_filter("%-20s %s\n", "f [name]", "add flag");
 			}
 			else {
-				if (vector_total(&input) > 1) {
-					char *name = (char *) vector_get(&input, 1);					
+				if (vect_chk_bounds(commands, 1)) {
+					char *name = (char *) vect_at_command(commands, 1);					
 					add_flag(name, seek);
 				} else {
 					show_flags();
@@ -976,7 +984,7 @@ int parent_main(pid_t pid, const char *script_filename) {
 			else {
 				kill(pid, SIGKILL);
 				wait_for_signal(pid);
-				vector_free(&input);
+				vect_free(commands);
 				vect_free(vect_flags);
 				vect_free(vect_breakpoints);
 				exit(0);
@@ -987,9 +995,11 @@ int parent_main(pid_t pid, const char *script_filename) {
 				printf_filter("command not found\n");
 		}
 
-		vector_free(&input);
+		// rimuovo tutti gli elementi
+		while(vect_chk_bounds(commands, 0)) 
+			vect_rem_command(commands, 0);
+
 		printw("\ndbg:0x%12lx> ", regs.rip);
-		fflush(stdout);
 	}
 	vect_free(history);
 	return 0;
