@@ -590,7 +590,7 @@ int parent_main(pid_t pid, const char *script_filename) {
 				int xpos;
 				int ypos;
 				getsyx(xpos, ypos);
-				if (ch > 31 && ch < 127){
+				if (ch == 10 || (ch > 31 && ch < 127)){
 					insch(ch);
 					printw("%c", ch);
 					for(int i=lencmd; i>ypos-startpos; i--){
@@ -646,7 +646,6 @@ int parent_main(pid_t pid, const char *script_filename) {
 				}
 
 				if (ch == '\n'){
-					printw("%c", ch);
 					tmp[lencmd] = '\0';
 					break;
 				}
