@@ -515,6 +515,11 @@ void printf_filter(char *fmt, ...){
 
 void init(){
 	initscr();
+	start_color();
+	init_pair(0, COLOR_WHITE, COLOR_BLACK);
+	init_pair(1, COLOR_RED, COLOR_BLACK);
+	init_pair(2, COLOR_WHITE, COLOR_BLACK);
+
 	clear();
 	noecho();
 	cbreak();	/* Line buffering disabled. pass on everything */
@@ -556,10 +561,13 @@ int parent_main(pid_t pid, const char *script_filename) {
 	printf_filter("%5d: child started\n", pid);
 	init();
 
+	attron(COLOR_PAIR(1));
 	// commands
 	char buf[22];
 	snprintf(buf, 22, "\ndbg:0x%12lx> ", regs.rip);
 	addstr(buf);
+	refresh();
+	attron(COLOR_PAIR(2));
 
 	FILE *source_input = stdin;
 	size_t source_input_size = 0;
@@ -1002,7 +1010,9 @@ int parent_main(pid_t pid, const char *script_filename) {
 		while(vect_chk_bounds(commands, 0)) 
 			vect_rem_command(commands, 0);
 
-		printw("\ndbg:0x%12lx> ", regs.rip);
+		attron(COLOR_PAIR(1));
+		printw("dbg:0x%12lx> ", regs.rip);
+		attron(COLOR_PAIR(2));
 	}
 	vect_free(history);
 	return 0;
