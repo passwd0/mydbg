@@ -16,7 +16,7 @@ void wait_for_signal(pid_t m_pid){
 	{
 		int i = breakpoint_addr2idx(regs.rip-1);
 		if (i < 0){
-			perror("Non e' stato trovato alcun breakpoint!");
+			printw("Non e' stato trovato alcun breakpoint!");
 			exit(1);
 		}
 		struct breakpoint_t bp = vect_at_breakpoint(vect_breakpoints, i);
@@ -266,19 +266,20 @@ void set_breakpoint_in_code(pid_t m_pid){
 
 void single_step(pid_t m_pid){	
 	if (ptrace(PTRACE_SINGLESTEP, m_pid, NULL, NULL) < 0){
-		perror("step");
+		printw("error step\n");
 		return;
 	}
 	wait_for_signal(m_pid);
 }
 
 void continue_execution(pid_t m_pid){
-	single_step(m_pid);
+	if (breakpoint_addr2idx(regs.rip) >= 0)
+		single_step(m_pid);
 
 	set_breakpoint_in_code(m_pid);
 
 	if (ptrace(PTRACE_CONT, m_pid, NULL, NULL) < 0) {
-		perror("cont");
+		printw("error cont\n");
 		return;
 	}
 	wait_for_signal(m_pid);
@@ -551,6 +552,8 @@ int parent_main(pid_t pid, const char *script_filename) {
 	ptrace(PTRACE_GETREGS, pid, NULL, &regs);
 
 	virtual_memory(pid, 0);
+
+	printf_filter("%5d: child started\n", pid);
 	init();
 
 	// commands
@@ -651,7 +654,7 @@ int parent_main(pid_t pid, const char *script_filename) {
 
 		// se sto analizzando lo script printa tmp
 		if (source_input != stdin){ 
-			printw("%s", tmp);
+			printw("%s\n", tmp);
 			// se sto analizzando lo script e l'ultimo carattere non e' \n, allora cambia source_input
 			if(ftell(source_input) == source_input_size)
 				source_input = stdin;
@@ -674,7 +677,6 @@ int parent_main(pid_t pid, const char *script_filename) {
 				}
 			}
 		} while(tmp[j++] != '\n');
-		
 
 		// check for seek and filter
 		uint64_t seek = regs.rip;
@@ -762,7 +764,7 @@ int parent_main(pid_t pid, const char *script_filename) {
 			else
 				single_step(pid);
 		}
-		else if (strcmp(command, "dr") == 0){
+		else if (!strcmp(command, "dr")){
 			if (is_helper){
 				printf_filter("%-20s %s\n", "dr", "show registers");
 				printf_filter("%-20s %s\n", "dr [reg]", "show value of given register");
@@ -779,8 +781,9 @@ int parent_main(pid_t pid, const char *script_filename) {
 				} else if (vector_total(&input) > 1) {
 					reg = (char *) vector_get(&input, 1);
 					dump_regs(reg);
-				} else 
-					dump_regs(NULL);				
+				} else {
+					dump_regs(NULL);
+				}
 			}
 		}
 		else if (!strcmp(command, "dc")){
@@ -1048,7 +1051,6 @@ int main(int argc, char *argv[]) {
 
 	pid = fork();
 	if (pid) {
-		fprintf(stderr, "%5d: child started\n", pid);
 		result = parent_main(pid, script_filename);
 	} else {
 		result = child_main(filename, NULL);
