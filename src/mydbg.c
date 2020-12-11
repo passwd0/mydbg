@@ -590,7 +590,7 @@ int parent_main(pid_t pid, const char *script_filename) {
 				int xpos;
 				int ypos;
 				getsyx(xpos, ypos);
-				if (ch > 0 && ch < 127){
+				if (ch > 31 && ch < 127){
 					insch(ch);
 					printw("%c", ch);
 					for(int i=lencmd; i>ypos-startpos; i--){
@@ -637,13 +637,17 @@ int parent_main(pid_t pid, const char *script_filename) {
 						}
 					}
 				}
+				if (ch == ctrl('l')){
+					char line[255];
+					for (int nline=0; nline < startpos+lencmd; nline++)
+						line[nline] = mvinch(xpos, nline);
+					clear();
+					printw("%s", line);
+				}
 
 				if (ch == '\n'){
-					tmp[lencmd-1] = '\0';
-					// for (int d=0; d<lencmd; d++){
-					// 	printw("[%d] [%c]\n", tmp[d], tmp[d]);
-					// 	refresh();
-					// }
+					printw("%c", ch);
+					tmp[lencmd] = '\0';
 					break;
 				}
 			}

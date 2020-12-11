@@ -26,6 +26,8 @@
 #include "vect.h"
 #include "elfparser.h"
 
+#define ctrl(x) ((x) & 0x1f)
+
 #define RREPEAT 1
 #define RALWAYS 0
 
