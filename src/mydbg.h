@@ -23,7 +23,6 @@
 #include <capstone/capstone.h>
 #include "utils.h"
 #include "pmparser.h"
-#include "vector.h"
 #include "vect.h"
 #include "elfparser.h"
 
